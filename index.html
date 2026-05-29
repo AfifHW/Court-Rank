@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -37,7 +38,6 @@
     }
     * { box-sizing: border-box; }
     
-    /* Simple CSS Reset for inputs/buttons */
     input, button, select { font-family: inherit; }
     
     @keyframes bounce {
@@ -147,7 +147,7 @@
       let loserLastGameScore = 0;
       if (t1Win) loserLastGameScore = lastGame.t2;
       else if (t2Win) loserLastGameScore = lastGame.t1;
-      else loserLastGameScore = lastGame.t1; // Jika seri sempurna, close loss tidak dihitung lagi karena poin S otomatis 1
+      else loserLastGameScore = lastGame.t1; // Jika seri sempurna, close loss tidak dihitung
 
       const t1S = calcS(t1Win, isTie, loserLastGameScore);
       const t2S = calcS(t2Win, isTie, loserLastGameScore);
@@ -231,7 +231,6 @@
 
     function App() {
       const [isLoaded, setIsLoaded] = useState(false);
-
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
       const [checkedIn, setCheckedIn] = useState(new Set([1, 2, 3, 4, 5, 6, 7, 8]));
@@ -287,6 +286,7 @@
       const standings = useMemo(() =>
         buildStandings(players, matches, checkedIn), [players, matches, checkedIn]);
 
+      // Logika MBG (Main Badminton Gacor)
       const mbgPlayer = useMemo(() => {
         if (standings.length === 0) return null;
         let maxR = -1;
@@ -388,9 +388,7 @@
         const el = document.getElementById("standings-board");
         if (!el) throw new Error("Tabel klasemen tidak ditemukan");
         
-        // Simpan style asli
         const originalCss = el.style.cssText;
-        // Paksa elemen melebar penuh sesuai lebar tabel (fit-content) agar bagian kanan tidak terpotong saat difoto di HP
         el.style.width = "max-content";
         el.style.minWidth = "100%";
 
@@ -399,9 +397,7 @@
           scale: 2 
         });
 
-        // Kembalikan ke style awal setelah gambar selesai dibuat
         el.style.cssText = originalCss;
-
         return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
       };
 
@@ -440,7 +436,6 @@
             showNotify("Browser tidak mendukung share langsung. Silakan gunakan tombol Simpan.", "error");
           }
         } catch (err) {
-          // Abaikan error jika user membatalkan share (AbortError)
           if (err.name !== "AbortError") {
             console.error(err);
             showNotify("Gagal membagikan gambar", "error");
@@ -510,12 +505,18 @@
         showNotify(`Match manual di Lapangan ${manualCourt} dimulai!`);
       };
 
-      const handleSubmitScore = (matchId, games) => {
+      const handleSubmitScore = (matchId, games, newTeam1, newTeam2, finishMatch) => {
         setMatches(prev => prev.map(m =>
-          m.id === matchId ? { ...m, status: "done", games } : m
+          m.id === matchId ? { 
+            ...m, 
+            games, 
+            team1: newTeam1,
+            team2: newTeam2,
+            status: finishMatch ? "done" : m.status 
+          } : m
         ));
         setScoreModal(null);
-        showNotify("Skor berhasil disimpan!");
+        showNotify("Data pertandingan berhasil diperbarui!");
       };
 
       if (!isLoaded) {
@@ -727,7 +728,6 @@
                   </div>
                 </div>
 
-                {/* Matchmaking buttons */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                   <button onClick={handleSmartMatch} style={{
                     flex: 1, padding: "12px 0",
@@ -743,7 +743,6 @@
                   }}>🎯 Manual</button>
                 </div>
 
-                {/* Court cards */}
                 {courts.map(courtId => {
                   const activeMatch = ongoingMatches.find(m => m.courtId === courtId);
                   return (
@@ -791,7 +790,6 @@
                   );
                 })}
 
-                {/* Recent matches */}
                 <div style={{ marginTop: 20 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
                     Match Selesai
@@ -886,7 +884,7 @@
                           const isIn = checkedIn.has(p.id);
                           const isPlaying = activePlayers.has(p.id);
                           return (
-                            <button key={p.id} onClick={() => !isPlaying && toggleCheckIn(p.id)}
+                            <div key={p.id} onClick={() => !isPlaying && toggleCheckIn(p.id)}
                               style={{
                                 display: "flex", alignItems: "center", gap: 12,
                                 background: isIn ? "#13131f" : "#0a0a14",
@@ -934,7 +932,7 @@
                               }}>
                                 {isIn ? "✓" : ""}
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -1041,7 +1039,7 @@
             <ScoreModal
               match={scoreModal} players={players}
               onClose={() => setScoreModal(null)}
-              onSubmit={(games) => handleSubmitScore(scoreModal.id, games)}
+              onSubmit={(games, t1, t2, finish) => handleSubmitScore(scoreModal.id, games, t1, t2, finish)}
             />
           )}
 
@@ -1162,8 +1160,9 @@
             background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
             border: "none", borderRadius: 8, cursor: "pointer",
             color: "#fff", fontWeight: 600, fontSize: 13,
+            fontFamily: "'DM Sans', sans-serif",
           }}>
-            Input Skor
+            Edit / Skor
           </button>
         </div>
       );
@@ -1186,7 +1185,7 @@
               background: "#374151", border: "none", color: "#e8e8f0", 
               fontSize: 10, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
               fontWeight: 600
-            }}>✏️ Edit Skor</button>
+            }}>✏️ Edit Match</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -1215,11 +1214,11 @@
 
     function ScoreModal({ match, players, onClose, onSubmit }) {
       const [games, setGames] = useState(match.games.length > 0 ? match.games : [{ t1: 0, t2: 0 }]);
-      const getPlayer = id => players.find(p => p.id === id);
+      const [team1, setTeam1] = useState([...match.team1]);
+      const [team2, setTeam2] = useState([...match.team2]);
 
       const updateGame = (idx, team, val) => {
         const n = [...games];
-        // Jika input dikosongkan, simpan sebagai string kosong sementara agar 0 membandel hilang
         let num = val === "" ? "" : parseInt(val, 10);
         if (num !== "" && isNaN(num)) return;
         if (num !== "") num = Math.max(0, Math.min(30, num));
@@ -1227,17 +1226,22 @@
         setGames(n);
       };
 
-      const handleSave = () => {
-        // Sanitasi: Pastikan string kosong kembali menjadi 0 sebelum disimpan ke sistem
+      const handleSave = (finishMatch) => {
         const sanitizedGames = games.map(g => ({
           t1: g.t1 === "" ? 0 : g.t1,
           t2: g.t2 === "" ? 0 : g.t2
         }));
-        onSubmit(sanitizedGames);
+        onSubmit(sanitizedGames, team1, team2, finishMatch);
       };
 
       const addGame = () => games.length < 3 && setGames(prev => [...prev, { t1: 0, t2: 0 }]);
       const removeGame = idx => games.length > 1 && setGames(prev => prev.filter((_, i) => i !== idx));
+
+      const selectStyle = {
+        width: "100%", background: "#0a0a0f", border: "1px solid #ffffff20",
+        padding: "6px 4px", borderRadius: 6, color: "#e8e8f0", fontSize: 12,
+        outline: "none", fontFamily: "'DM Sans', sans-serif"
+      };
 
       return (
         <div style={{
@@ -1250,29 +1254,40 @@
             border: "1px solid #ffffff14", maxHeight: "90vh", overflowY: "auto",
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>{match.status === "done" ? "Edit Skor" : "Input Skor"} · Lapangan {match.courtId}</span>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{match.status === "done" ? "Edit Match" : "Update Match"} · Lap. {match.courtId}</span>
               <button onClick={onClose} style={{
                 background: "#ffffff12", border: "none", color: "#9ca3af",
                 borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
               }}>×</button>
             </div>
 
+            {/* AREA EDIT PEMAIN */}
             <div style={{ display: "flex", marginBottom: 16, gap: 8 }}>
-              {[match.team1, match.team2].map((team, ti) => (
-                <div key={ti} style={{
-                  flex: 1, background: "#0d0d1a", borderRadius: 8,
-                  padding: "8px 10px", fontSize: 12, textAlign: "center",
-                  border: "1px solid #ffffff0a",
-                }}>
-                  <div style={{ color: "#6b7280", marginBottom: 4, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tim {ti + 1}</div>
-                  {team.map(id => {
-                    const p = getPlayer(id);
-                    return p ? <div key={id} style={{ fontWeight: 500, marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
-                  })}
+              <div style={{ flex: 1, background: "#0d0d1a", borderRadius: 8, padding: "10px", border: "1px solid #ffffff0a" }}>
+                <div style={{ color: "#6b7280", marginBottom: 8, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", fontWeight: 700 }}>Tim 1</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <select value={team1[0]} onChange={e => setTeam1([parseInt(e.target.value), team1[1]])} style={selectStyle}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select value={team1[1]} onChange={e => setTeam1([team1[0], parseInt(e.target.value)])} style={selectStyle}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
                 </div>
-              ))}
+              </div>
+              <div style={{ flex: 1, background: "#0d0d1a", borderRadius: 8, padding: "10px", border: "1px solid #ffffff0a" }}>
+                <div style={{ color: "#6b7280", marginBottom: 8, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", fontWeight: 700 }}>Tim 2</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <select value={team2[0]} onChange={e => setTeam2([parseInt(e.target.value), team2[1]])} style={selectStyle}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select value={team2[1]} onChange={e => setTeam2([team2[0], parseInt(e.target.value)])} style={selectStyle}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
 
+            {/* AREA EDIT SKOR */}
             {games.map((g, idx) => (
               <div key={idx} style={{
                 background: "#0d0d1a", borderRadius: 10, padding: 12,
@@ -1296,9 +1311,7 @@
                     style={{
                       flex: 1, background: "#13131f", border: "1px solid #6366f140",
                       borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
-                      textAlign: "center", padding: "10px 0",
-                      fontFamily: "'DM Mono', monospace",
-                      WebkitAppearance: "none", MozAppearance: "textfield",
+                      textAlign: "center", padding: "10px 0", fontFamily: "'DM Mono', monospace",
                     }}
                   />
                   <span style={{ color: "#4b5563", fontSize: 18, fontWeight: 600 }}>:</span>
@@ -1309,9 +1322,7 @@
                     style={{
                       flex: 1, background: "#13131f", border: "1px solid #6366f140",
                       borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
-                      textAlign: "center", padding: "10px 0",
-                      fontFamily: "'DM Mono', monospace",
-                      WebkitAppearance: "none", MozAppearance: "textfield",
+                      textAlign: "center", padding: "10px 0", fontFamily: "'DM Mono', monospace",
                     }}
                   />
                 </div>
@@ -1320,19 +1331,22 @@
 
             {games.length < 3 && (
               <button onClick={addGame} style={{
-                width: "100%", padding: "10px 0",
-                background: "#13131f", border: "1px dashed #ffffff20",
-                borderRadius: 10, cursor: "pointer",
-                color: "#6b7280", fontSize: 13, marginBottom: 12,
+                width: "100%", padding: "10px 0", background: "#13131f", border: "1px dashed #ffffff20",
+                borderRadius: 10, cursor: "pointer", color: "#6b7280", fontSize: 13, marginBottom: 16,
               }}>+ Tambah Set</button>
             )}
 
-            <button onClick={handleSave} style={{
-              width: "100%", padding: "14px 0",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              border: "none", borderRadius: 10, cursor: "pointer",
-              color: "#fff", fontWeight: 700, fontSize: 15,
-            }}>Simpan Hasil</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              {match.status === "ongoing" ? (
+                <>
+                  <button onClick={() => handleSave(false)} style={{ flex: 1, padding: "12px 0", background: "#1f2937", border: "1px solid #374151", borderRadius: 10, cursor: "pointer", color: "#e8e8f0", fontWeight: 600, fontSize: 13 }}>Simpan Sementara</button>
+                  <button onClick={() => handleSave(true)} style={{ flex: 1, padding: "12px 0", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 10, cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: 13 }}>Akhiri Match</button>
+                </>
+              ) : (
+                <button onClick={() => handleSave(true)} style={{ width: "100%", padding: "14px 0", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 10, cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: 14 }}>Simpan Perubahan</button>
+              )}
+            </div>
+
           </div>
         </div>
       );
@@ -1510,3 +1524,6 @@
   </script>
 </body>
 </html>
+
+
+```
