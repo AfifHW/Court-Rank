@@ -492,19 +492,35 @@
         setIsProcessing(null);
       };
 
-      const handleCopyShareLink = () => {
+      // Fitur Copy Link Share Data dengan Perpendek URL (TinyURL API)
+      const handleCopyShareLink = async () => {
         if (!window.LZString) return showNotify("Sedang menyiapkan data...", "error");
+        
+        setIsProcessing("shareLink");
         
         const payload = JSON.stringify({
           p: players, m: matches, c: Array.from(checkedIn), n: numCourts
         });
         const compressed = window.LZString.compressToEncodedURIComponent(payload);
         
-        // Membersihkan URL agar tidak bertumpuk jika sudah ada ?data=
         const baseUrl = window.location.href.split('?')[0].split('#')[0];
-        const shareUrl = `${baseUrl}?data=${compressed}`;
+        const longUrl = `${baseUrl}?data=${compressed}`;
+        let shareUrl = longUrl;
         
-        // Coba pakai Web Share API dulu agar bisa langsung dikirim via aplikasi lain
+        try {
+          // Menggunakan API pihak ketiga gratis (TinyURL) untuk memperpendek link
+          const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+          if (response.ok) {
+            const text = await response.text();
+            if (text.startsWith("http")) shareUrl = text;
+          }
+        } catch (err) {
+          console.warn("Gagal memperpendek link, fallback ke link asli.", err);
+        }
+
+        setIsProcessing(null);
+
+        // Coba pakai Web Share API dulu agar bisa langsung dikirim via WhatsApp/Line
         if (navigator.share) {
           navigator.share({
             title: 'Data Court-rank',
@@ -861,13 +877,13 @@
                       {isProcessing === "share" ? "⏳" : "💬"} Kirim WA
                     </button>
                   </div>
-                  <button onClick={handleCopyShareLink} style={{
-                    width: "100%", background: "#13131f", border: "1px solid #6366f160",
-                    color: "#a78bfa", borderRadius: 12, padding: "12px", cursor: "pointer",
+                  <button onClick={handleCopyShareLink} disabled={isProcessing !== null} style={{
+                    width: "100%", background: isProcessing === "shareLink" ? "#4b5563" : "#13131f", border: "1px solid #6366f160",
+                    color: isProcessing === "shareLink" ? "#fff" : "#a78bfa", borderRadius: 12, padding: "12px", cursor: isProcessing !== null ? "default" : "pointer",
                     fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                     fontFamily: "'DM Sans', sans-serif",
                   }}>
-                    🔗 Share Data
+                    {isProcessing === "shareLink" ? "⏳ Memperpendek Link..." : "🔗 Share Data (Biar Teman Bisa Buka)"}
                   </button>
                 </div>
 
