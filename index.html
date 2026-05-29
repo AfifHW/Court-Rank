@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -9,10 +8,12 @@
   <!-- Font Setup -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   
   <!-- html2canvas for Sharing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- LZString for URL Data Compression -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
   <!-- Import Maps for ES Modules -->
   <script type="importmap">
@@ -251,17 +252,47 @@
       const [confirmDialog, setConfirmDialog] = useState(null);
       const [editingPlayer, setEditingPlayer] = useState(null);
 
-      // --- Integrasi Auto-Save (LocalStorage) ---
+      // Cek URL Params untuk Shared Data & LocalStorage
       useEffect(() => {
-        const savedState = localStorage.getItem('courtRankState');
-        if (savedState) {
-          try {
-            const data = JSON.parse(savedState);
-            if (data.players) setPlayers(data.players);
-            if (data.matches) setMatches(data.matches);
-            if (data.checkedIn) setCheckedIn(new Set(data.checkedIn));
-            if (data.numCourts) setNumCourts(data.numCourts);
-          } catch(e) { console.error(e); }
+        const loadSharedData = () => {
+          const params = new URLSearchParams(window.location.search);
+          const sharedData = params.get('data');
+
+          if (sharedData && window.LZString) {
+            try {
+              const decompressed = window.LZString.decompressFromEncodedURIComponent(sharedData);
+              if (decompressed) {
+                const data = JSON.parse(decompressed);
+                if (data.p && data.m) {
+                  setPlayers(data.p);
+                  setMatches(data.m);
+                  if (data.c) setCheckedIn(new Set(data.c));
+                  if (data.n) setNumCourts(data.n);
+                  
+                  // Bersihkan URL agar tidak terus me-load saat di-refresh
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                  showNotify("Data dari link berhasil dimuat!", "success");
+                  return true;
+                }
+              }
+            } catch(e) {
+              console.error("Gagal memuat data dari link", e);
+            }
+          }
+          return false;
+        };
+
+        if (!loadSharedData()) {
+          const savedState = localStorage.getItem('courtRankState');
+          if (savedState) {
+            try {
+              const data = JSON.parse(savedState);
+              if (data.players) setPlayers(data.players);
+              if (data.matches) setMatches(data.matches);
+              if (data.checkedIn) setCheckedIn(new Set(data.checkedIn));
+              if (data.numCourts) setNumCourts(data.numCourts);
+            } catch(e) { console.error(e); }
+          }
         }
         setIsLoaded(true);
       }, []);
@@ -272,7 +303,6 @@
           players, matches, checkedIn: Array.from(checkedIn), numCourts
         }));
       }, [players, matches, checkedIn, numCourts, isLoaded]);
-      // ----------------------------------------
 
       const ongoingMatches = useMemo(() =>
         matches.filter(m => m.status === "ongoing"), [matches]);
@@ -296,7 +326,6 @@
             maxR = p.totalR;
             candidate = p;
           } else if (p.totalR === maxR && maxR > 0) {
-            // Jika poin underdog sama, pilih yang tier-nya lebih rendah
             if (TIER_WEIGHT[p.tier] < TIER_WEIGHT[candidate?.tier || "S"]) {
               candidate = p;
             }
@@ -304,10 +333,26 @@
         });
         if (maxR > 0) return candidate;
         
-        // Fallback: Pemain tier bawah (C, D, E) dengan win terbanyak jika tidak ada poin underdog
         const lowerTiers = standings.filter(p => ["C", "D", "E"].includes(p.tier) && p.W > 0);
         return lowerTiers.length > 0 ? lowerTiers[0] : null;
       }, [standings]);
+
+      // Logika MAGER OF THE DAY
+      const magerPlayer = useMemo(() => {
+        // Cari dari pemain yang sudah check-in saja
+        const checkedInStandings = standings.filter(p => checkedIn.has(p.id));
+        if (checkedInStandings.length === 0) return null;
+        
+        let minG = Infinity;
+        let candidate = null;
+        checkedInStandings.forEach(p => {
+          if (p.G < minG) {
+            minG = p.G;
+            candidate = p;
+          }
+        });
+        return candidate;
+      }, [standings, checkedIn]);
 
       const occupiedCourts = useMemo(() =>
         new Set(ongoingMatches.map(m => m.courtId)), [ongoingMatches]);
@@ -377,7 +422,7 @@
       const handleReduceCourt = () => {
         if (numCourts > 1) {
           if (occupiedCourts.has(numCourts)) {
-            showNotify(`Lapangan ${numCourts} sedang terpakai!`, "error");
+            showNotify(`Match ${numCourts} sedang terpakai!`, "error");
           } else {
             setNumCourts(prev => prev - 1);
           }
@@ -388,13 +433,16 @@
         const el = document.getElementById("standings-board");
         if (!el) throw new Error("Tabel klasemen tidak ditemukan");
         
+        await document.fonts.ready; // Pastikan font termuat untuk html2canvas
+
         const originalCss = el.style.cssText;
         el.style.width = "max-content";
         el.style.minWidth = "100%";
 
         const canvas = await window.html2canvas(el, { 
           backgroundColor: "#0a0a0f",
-          scale: 2 
+          scale: 2,
+          useCORS: true
         });
 
         el.style.cssText = originalCss;
@@ -433,7 +481,7 @@
               files: [file]
             });
           } else {
-            showNotify("Browser tidak mendukung share langsung. Silakan gunakan tombol Simpan.", "error");
+            showNotify("Browser tidak mendukung share langsung. Silakan gunakan tombol Simpan Gambar.", "error");
           }
         } catch (err) {
           if (err.name !== "AbortError") {
@@ -442,6 +490,56 @@
           }
         }
         setIsProcessing(null);
+      };
+
+      const handleCopyShareLink = () => {
+        if (!window.LZString) return showNotify("Sedang menyiapkan data...", "error");
+        
+        const payload = JSON.stringify({
+          p: players, m: matches, c: Array.from(checkedIn), n: numCourts
+        });
+        const compressed = window.LZString.compressToEncodedURIComponent(payload);
+        
+        // Membersihkan URL agar tidak bertumpuk jika sudah ada ?data=
+        const baseUrl = window.location.href.split('?')[0].split('#')[0];
+        const shareUrl = `${baseUrl}?data=${compressed}`;
+        
+        // Coba pakai Web Share API dulu agar bisa langsung dikirim via aplikasi lain
+        if (navigator.share) {
+          navigator.share({
+            title: 'Data Court-rank',
+            text: 'Cek klasemen dan riwayat pertandingan Court-rank di sini:',
+            url: shareUrl
+          }).then(() => {
+            showNotify("Link Data berhasil dibagikan!");
+          }).catch((err) => {
+            if (err.name !== "AbortError") fallbackCopy(shareUrl);
+          });
+        } else if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              showNotify("Link Data berhasil disalin! Bagikan ke teman.");
+            }).catch(() => fallbackCopy(shareUrl));
+        } else {
+            fallbackCopy(shareUrl);
+        }
+      };
+
+      // Fallback copy manual untuk mobile browsers
+      const fallbackCopy = (text) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showNotify("Link Data berhasil disalin! Bagikan ke teman.");
+        } catch (err) {
+            window.prompt("Fitur salin otomatis diblokir. Salin link berikut secara manual:", text);
+        }
+        textArea.remove();
       };
 
       const handleSmartMatch = () => {
@@ -483,26 +581,36 @@
             team1: best.team1, team2: best.team2, games: [{ t1: 0, t2: 0 }],
           };
           setMatches(prev => [...prev, newMatch]);
-          showNotify(`Match dibuat di Lapangan ${freeCourt}!`);
+          showNotify(`Match dibuat di Match ${freeCourt}!`);
         }
       };
 
       const handleManualMatch = () => {
-        if (manualSelected.length !== 4) {
-          showNotify("Pilih tepat 4 pemain!", "error"); return;
+        if (manualSelected.length !== 2 && manualSelected.length !== 4) {
+          showNotify("Pilih 2 pemain (Single) atau 4 pemain (Double)!", "error"); return;
         }
         if (occupiedCourts.has(manualCourt)) {
-          showNotify(`Lapangan ${manualCourt} sudah terpakai!`, "error"); return;
+          showNotify(`Match ${manualCourt} sudah terpakai!`, "error"); return;
         }
+        
+        let t1, t2;
+        if (manualSelected.length === 2) {
+          t1 = [manualSelected[0]];
+          t2 = [manualSelected[1]];
+        } else {
+          t1 = [manualSelected[0], manualSelected[1]];
+          t2 = [manualSelected[2], manualSelected[3]];
+        }
+
         const newMatch = {
           id: `m${Date.now()}`, courtId: manualCourt, status: "ongoing",
-          team1: manualSelected.slice(0, 2), team2: manualSelected.slice(2, 4),
+          team1: t1, team2: t2,
           games: [{ t1: 0, t2: 0 }],
         };
         setMatches(prev => [...prev, newMatch]);
         setManualModal(false);
         setManualSelected([]);
-        showNotify(`Match manual di Lapangan ${manualCourt} dimulai!`);
+        showNotify(`Match manual di Match ${manualCourt} dimulai!`);
       };
 
       const handleSubmitScore = (matchId, games, newTeam1, newTeam2, finishMatch) => {
@@ -517,6 +625,20 @@
         ));
         setScoreModal(null);
         showNotify("Data pertandingan berhasil diperbarui!");
+      };
+
+      const handleDeleteMatch = (matchId) => {
+        setConfirmDialog({
+          title: "Hapus Match",
+          message: "Yakin ingin menghapus pertandingan ini? Skor dan data terkait akan dihapus secara permanen.",
+          isDanger: true,
+          onConfirm: () => {
+            setMatches(prev => prev.filter(m => m.id !== matchId));
+            setScoreModal(null);
+            showNotify("Pertandingan berhasil dihapus.");
+            setConfirmDialog(null);
+          }
+        });
       };
 
       if (!isLoaded) {
@@ -559,7 +681,7 @@
             <div style={{ display: "flex", gap: 0, borderTop: "1px solid #ffffff10" }}>
               {[
                 { key: "standings", label: "Klasemen" },
-                { key: "courts", label: "Lapangan" },
+                { key: "courts", label: "Match" },
                 { key: "checkin", label: "Pemain" },
                 { key: "formula", label: "Aturan" },
               ].map(t => (
@@ -589,25 +711,49 @@
                     </div>
                   </div>
 
-                  {/* Ucapan Selamat Dinamis */}
+                  {/* Ucapan Selamat Dinamis (Flex Layout agar stabil di html2canvas) */}
                   {standings.length > 0 && (
                     <div style={{
                       background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-                      padding: "12px 14px", borderRadius: 12, marginBottom: 14,
-                      border: "1px solid #4f46e540", fontSize: 13, lineHeight: 1.5,
-                      color: "#e0e7ff"
+                      padding: "16px", borderRadius: 12, marginBottom: 16,
+                      border: "1px solid #4f46e540",
+                      display: "flex", flexDirection: "column", gap: "12px"
                     }}>
-                      <div style={{ marginBottom: 6 }}>
-                        👑 <strong style={{ color: "#fbbf24" }}>{standings[0].name}</strong>, Kanda bangga sama kamu!
+                      <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.4" }}>
+                        <span style={{ fontSize: "16px" }}>👑</span>
+                        <div style={{ fontSize: "13px", color: "#e0e7ff" }}>
+                          <strong style={{ color: "#fbbf24", fontSize: "14px", display: "block", marginBottom: "2px" }}>BOS OF THE DAY: {standings[0].name}</strong>
+                          Kanda suka {standings[0].name} punya gaya! Lawan banyak dapat program makan smash gratis hari ini.
+                        </div>
                       </div>
+                      
                       {standings.length > 1 && (
-                        <div style={{ marginBottom: 6, color: "#fca5a5", fontSize: 12 }}>
-                          🤡 <strong style={{ color: "#f87171" }}>{standings[standings.length - 1].name}</strong>, hari ini dicaci maki, dihina, di smash, minggu depan ? saya akan lawan!
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.4" }}>
+                          <span style={{ fontSize: "16px" }}>🤡</span>
+                          <div style={{ fontSize: "12px", color: "#fca5a5" }}>
+                            <strong style={{ color: "#f87171", fontSize: "13px", display: "block", marginBottom: "2px" }}>BADUT OF THE DAY: {standings[standings.length - 1].name}</strong>
+                            Hari ini dicaci maki, dihina, di-smash… minggu depan? Saya akan lawan!
+                          </div>
                         </div>
                       )}
+
                       {mbgPlayer && (
-                        <div style={{ color: "#a5b4fc", fontSize: 12 }}>
-                          ⭐ <strong style={{ color: "#818cf8" }}>{mbgPlayer.name}</strong>, jadi MBG (Main Badminton Gacor) hari ini !
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.4" }}>
+                          <span style={{ fontSize: "16px" }}>⭐</span>
+                          <div style={{ fontSize: "12px", color: "#a5b4fc" }}>
+                            <strong style={{ color: "#818cf8", fontSize: "13px", display: "block", marginBottom: "2px" }}>MBG OF THE DAY: {mbgPlayer.name}</strong>
+                            Bisa dapet tiket MBG (Main Badminton Gacor) gratis, ketolong partner wkwk
+                          </div>
+                        </div>
+                      )}
+
+                      {magerPlayer && (
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", lineHeight: "1.4" }}>
+                          <span style={{ fontSize: "16px" }}>💸</span>
+                          <div style={{ fontSize: "12px", color: "#d1d5db" }}>
+                            <strong style={{ color: "#9ca3af", fontSize: "13px", display: "block", marginBottom: "2px" }}>MAGER OF THE DAY: {magerPlayer.name}</strong>
+                            Lemah amat kayak Rupiah aja 😭
+                          </div>
                         </div>
                       )}
                     </div>
@@ -676,40 +822,52 @@
                     </table>
                   </div>
                   
-                  {/* Legenda Klasemen */}
-                  <div style={{ marginTop: 16, background: "#13131f", padding: "12px", borderRadius: "10px", border: "1px solid #ffffff10" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>Legenda Klasemen</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 11, color: "#6b7280" }}>
-                      <div><strong style={{color: "#e8e8f0"}}>Tier:</strong> Peringkat kemampuan</div>
-                      <div><strong style={{color: "#e8e8f0"}}>G:</strong> Set/Game dimainkan</div>
-                      <div><strong style={{color: "#e8e8f0"}}>W-D-L:</strong> Menang - Seri - Kalah</div>
-                      <div><strong style={{color: "#e8e8f0"}}>Skor:</strong> Total poin murni (TS)</div>
-                      <div><strong style={{color: "#e8e8f0"}}>DIFF:</strong> Selisih poin (+/-)</div>
-                      <div><strong style={{color: "#e8e8f0"}}>+M:</strong> Kompensasi absen</div>
-                      <div style={{gridColumn: "1 / -1", marginTop: 4}}><strong style={{color: "#e8e8f0"}}>MBG:</strong> Main Badminton Gacor (Pemain <i>underdog</i> / MVP yang paling sering mengimbangi atau menang lawan tier atas)</div>
-                      <div style={{gridColumn: "1 / -1", marginTop: 4, paddingTop: 4, borderTop: "1px dashed #ffffff14"}}>
+                  {/* Legenda Klasemen (Flex Block untuk html2canvas yang lebih baik) */}
+                  <div style={{ marginTop: 16, background: "#13131f", padding: "14px", borderRadius: "10px", border: "1px solid #ffffff10" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", marginBottom: 10, letterSpacing: "0.05em", textTransform: "uppercase" }}>Legenda Klasemen</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 0", fontSize: 11, color: "#6b7280", lineHeight: "1.4" }}>
+                      <div style={{ width: "50%", paddingRight: "8px" }}><strong style={{color: "#e8e8f0"}}>Tier:</strong> Peringkat kemampuan</div>
+                      <div style={{ width: "50%" }}><strong style={{color: "#e8e8f0"}}>G:</strong> Set/Game dimainkan</div>
+                      <div style={{ width: "50%", paddingRight: "8px" }}><strong style={{color: "#e8e8f0"}}>W-D-L:</strong> Menang - Seri - Kalah</div>
+                      <div style={{ width: "50%" }}><strong style={{color: "#e8e8f0"}}>Skor:</strong> Total poin murni (TS)</div>
+                      <div style={{ width: "50%", paddingRight: "8px" }}><strong style={{color: "#e8e8f0"}}>DIFF:</strong> Selisih poin (+/-)</div>
+                      <div style={{ width: "50%" }}><strong style={{color: "#e8e8f0"}}>+M:</strong> Kompensasi absen</div>
+                      <div style={{ width: "100%", marginTop: "4px" }}>
+                        <strong style={{color: "#e8e8f0"}}>MBG:</strong> Main Badminton Gacor (Pemain <i>underdog</i> yang paling sering mengimbangi / menang lawan tier atas)
+                      </div>
+                      <div style={{ width: "100%", marginTop: "6px", paddingTop: "8px", borderTop: "1px dashed #ffffff14" }}>
                         <strong style={{color: "#a78bfa"}}>P (Total Poin):</strong> TS + Status Match + Subsidi + M
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, marginTop: 24, paddingBottom: 16 }}>
-                  <button onClick={handleDownloadImage} disabled={isProcessing !== null} style={{
-                    flex: 1, background: isProcessing === "download" ? "#4b5563" : "#1f2937",
-                    border: "1px solid #374151", borderRadius: 12, padding: "14px 16px", cursor: isProcessing !== null ? "default" : "pointer",
-                    color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 24, paddingBottom: 16 }}>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={handleDownloadImage} disabled={isProcessing !== null} style={{
+                      flex: 1, background: isProcessing === "download" ? "#4b5563" : "#1f2937",
+                      border: "1px solid #374151", borderRadius: 12, padding: "14px 10px", cursor: isProcessing !== null ? "default" : "pointer",
+                      color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                      {isProcessing === "download" ? "⏳" : "💾"} Simpan Gambar
+                    </button>
+                    <button onClick={handleShareWA} disabled={isProcessing !== null} style={{
+                      flex: 1, background: isProcessing === "share" ? "#4b5563" : "linear-gradient(135deg, #22c55e, #16a34a)",
+                      border: "none", borderRadius: 12, padding: "14px 10px", cursor: isProcessing !== null ? "default" : "pointer",
+                      color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      boxShadow: "0 4px 16px #22c55e25", fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                      {isProcessing === "share" ? "⏳" : "💬"} Kirim WA
+                    </button>
+                  </div>
+                  <button onClick={handleCopyShareLink} style={{
+                    width: "100%", background: "#13131f", border: "1px solid #6366f160",
+                    color: "#a78bfa", borderRadius: 12, padding: "12px", cursor: "pointer",
+                    fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                     fontFamily: "'DM Sans', sans-serif",
                   }}>
-                    {isProcessing === "download" ? "⏳" : "💾"} Simpan
-                  </button>
-                  <button onClick={handleShareWA} disabled={isProcessing !== null} style={{
-                    flex: 1, background: isProcessing === "share" ? "#4b5563" : "linear-gradient(135deg, #22c55e, #16a34a)",
-                    border: "none", borderRadius: 12, padding: "14px 16px", cursor: isProcessing !== null ? "default" : "pointer",
-                    color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                    boxShadow: "0 4px 16px #22c55e25", fontFamily: "'DM Sans', sans-serif",
-                  }}>
-                    {isProcessing === "share" ? "⏳" : "💬"} Kirim WA
+                    🔗 Share Data
                   </button>
                 </div>
 
@@ -759,7 +917,7 @@
                         borderBottom: "1px solid #ffffff0a",
                       }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af" }}>
-                          Lapangan {courtId}
+                          Match {courtId}
                         </span>
                         {activeMatch ? (
                           <span style={{
@@ -1040,6 +1198,7 @@
               match={scoreModal} players={players}
               onClose={() => setScoreModal(null)}
               onSubmit={(games, t1, t2, finish) => handleSubmitScore(scoreModal.id, games, t1, t2, finish)}
+              onDelete={() => handleDeleteMatch(scoreModal.id)}
             />
           )}
 
@@ -1179,7 +1338,7 @@
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, alignItems: "center", borderBottom: "1px solid #ffffff0a", paddingBottom: 8 }}>
             <div style={{ fontSize: 10, color: "#6b7280" }}>
-              Lap. {match.courtId} · {match.games.map(g => `${g.t1}-${g.t2}`).join(", ")}
+              Match {match.courtId} · {match.games.map(g => `${g.t1}-${g.t2}`).join(", ")}
             </div>
             <button onClick={onEdit} style={{
               background: "#374151", border: "none", color: "#e8e8f0", 
@@ -1212,7 +1371,7 @@
       );
     }
 
-    function ScoreModal({ match, players, onClose, onSubmit }) {
+    function ScoreModal({ match, players, onClose, onSubmit, onDelete }) {
       const [games, setGames] = useState(match.games.length > 0 ? match.games : [{ t1: 0, t2: 0 }]);
       const [team1, setTeam1] = useState([...match.team1]);
       const [team2, setTeam2] = useState([...match.team2]);
@@ -1255,34 +1414,46 @@
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <span style={{ fontWeight: 700, fontSize: 16 }}>{match.status === "done" ? "Edit Match" : "Update Match"} · Lap. {match.courtId}</span>
-              <button onClick={onClose} style={{
-                background: "#ffffff12", border: "none", color: "#9ca3af",
-                borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
-              }}>×</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={onDelete} style={{
+                  background: "#7f1d1d30", border: "1px solid #991b1b50", color: "#fca5a5",
+                  borderRadius: 8, padding: "0 10px", cursor: "pointer", fontSize: 12, fontWeight: 600
+                }}>Hapus</button>
+                <button onClick={onClose} style={{
+                  background: "#ffffff12", border: "none", color: "#9ca3af",
+                  borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
+                }}>×</button>
+              </div>
             </div>
 
-            {/* AREA EDIT PEMAIN */}
+            {/* AREA EDIT PEMAIN DENGAN DUKUNGAN SINGLE ATAU DOUBLE */}
             <div style={{ display: "flex", marginBottom: 16, gap: 8 }}>
               <div style={{ flex: 1, background: "#0d0d1a", borderRadius: 8, padding: "10px", border: "1px solid #ffffff0a" }}>
                 <div style={{ color: "#6b7280", marginBottom: 8, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", fontWeight: 700 }}>Tim 1</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <select value={team1[0]} onChange={e => setTeam1([parseInt(e.target.value), team1[1]])} style={selectStyle}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  <select value={team1[1]} onChange={e => setTeam1([team1[0], parseInt(e.target.value)])} style={selectStyle}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  {team1.map((pId, index) => (
+                    <select key={`t1-${index}`} value={pId} onChange={e => {
+                      const newTeam = [...team1];
+                      newTeam[index] = parseInt(e.target.value);
+                      setTeam1(newTeam);
+                    }} style={selectStyle}>
+                      {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  ))}
                 </div>
               </div>
               <div style={{ flex: 1, background: "#0d0d1a", borderRadius: 8, padding: "10px", border: "1px solid #ffffff0a" }}>
                 <div style={{ color: "#6b7280", marginBottom: 8, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center", fontWeight: 700 }}>Tim 2</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <select value={team2[0]} onChange={e => setTeam2([parseInt(e.target.value), team2[1]])} style={selectStyle}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  <select value={team2[1]} onChange={e => setTeam2([team2[0], parseInt(e.target.value)])} style={selectStyle}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  {team2.map((pId, index) => (
+                    <select key={`t2-${index}`} value={pId} onChange={e => {
+                      const newTeam = [...team2];
+                      newTeam[index] = parseInt(e.target.value);
+                      setTeam2(newTeam);
+                    }} style={selectStyle}>
+                      {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1361,9 +1532,9 @@
       };
       const teamLabel = (id) => {
         const idx = selected.indexOf(id);
-        if (idx === 0 || idx === 1) return "T1";
-        if (idx === 2 || idx === 3) return "T2";
-        return null;
+        if (idx === -1) return null;
+        // Beri nomor berurutan pada lencana saat memilih
+        return idx + 1;
       };
 
       return (
@@ -1383,12 +1554,13 @@
                 borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
               }}>×</button>
             </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 14 }}>
-              Pilih 4 pemain (2 pertama = Tim 1, 2 berikutnya = Tim 2)
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 14, lineHeight: "1.5" }}>
+              Pilih <strong>2 pemain (Single)</strong> atau <strong>4 pemain (Double)</strong>.
+              <br/><span style={{fontSize: 10, opacity: 0.8}}>Single: Pemain (1) vs (2). Double: (1)&(2) vs (3)&(4).</span>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Lapangan</div>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Pilih Match (Lapangan)</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {courts.map(c => (
                   <button key={c} onClick={() => setCourt(c)} style={{
@@ -1396,7 +1568,7 @@
                     background: court === c ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#0d0d1a",
                     border: "1px solid #ffffff14", borderRadius: 8, cursor: "pointer",
                     color: court === c ? "#fff" : "#9ca3af", fontSize: 13, fontWeight: 600,
-                  }}>Lap. {c}</button>
+                  }}>M. {c}</button>
                 ))}
               </div>
             </div>
@@ -1415,9 +1587,9 @@
                   }}>
                     {label && (
                       <span style={{
-                        width: 28, height: 22, borderRadius: 5, fontSize: 10, fontWeight: 700,
-                        background: label === "T1" ? "#6366f130" : "#8b5cf630",
-                        color: label === "T1" ? "#818cf8" : "#a78bfa",
+                        width: 28, height: 22, borderRadius: 5, fontSize: 11, fontWeight: 700,
+                        background: (label === 1 || label === 2) ? "#6366f130" : "#8b5cf630",
+                        color: (label === 1 || label === 2) ? "#818cf8" : "#a78bfa",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         flexShrink: 0,
                       }}>{label}</span>
@@ -1433,17 +1605,17 @@
 
             <button
               onClick={onSubmit}
-              disabled={selected.length !== 4}
+              disabled={selected.length !== 2 && selected.length !== 4}
               style={{
                 width: "100%", padding: "14px 0",
-                background: selected.length === 4
+                background: (selected.length === 2 || selected.length === 4)
                   ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#1e1e2e",
-                border: "none", borderRadius: 10, cursor: selected.length === 4 ? "pointer" : "default",
-                color: selected.length === 4 ? "#fff" : "#374151",
+                border: "none", borderRadius: 10, cursor: (selected.length === 2 || selected.length === 4) ? "pointer" : "default",
+                color: (selected.length === 2 || selected.length === 4) ? "#fff" : "#374151",
                 fontWeight: 700, fontSize: 15, transition: "all 0.15s",
               }}
             >
-              {selected.length === 4 ? "Mulai Match" : `Pilih ${4 - selected.length} pemain lagi`}
+              {(selected.length === 2 || selected.length === 4) ? "Mulai Match" : `Single butuh 2 pemain, Double 4 pemain`}
             </button>
           </div>
         </div>
@@ -1524,6 +1696,3 @@
   </script>
 </body>
 </html>
-
-
-```
