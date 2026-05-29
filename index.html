@@ -151,7 +151,7 @@
         const myMatches = matches.filter(
           m => m.status === "done" && [...m.team1, ...m.team2].includes(pid)
         );
-        let totalPts = 0, wins = 0, losses = 0, totalFor = 0, totalAgainst = 0, gamesPlayed = 0;
+        let totalPts = 0, wins = 0, losses = 0, totalFor = 0, totalAgainst = 0, gamesPlayed = 0, totalR = 0;
 
         myMatches.forEach(m => {
           const res = calcMatchResult(m, players);
@@ -165,6 +165,7 @@
           totalAgainst += oppScore;
           gamesPlayed += m.games.length;
           if (won) wins++; else losses++;
+          totalR += R;
           const TS = myScore;
           totalPts += TS + S + R;
         });
@@ -179,7 +180,7 @@
           matchesPlayed: myMatches.length,
           W: wins, L: losses,
           totalFor, totalAgainst,
-          diff, M,
+          diff, M, totalR,
           P: totalPtsWithM,
         };
       }).sort((a, b) => {
@@ -221,6 +222,7 @@
       const [manualCourt, setManualCourt] = useState(1);
       const [notify, setNotify] = useState(null);
       const [confirmDialog, setConfirmDialog] = useState(null);
+      const [editingPlayer, setEditingPlayer] = useState(null);
 
       // --- Integrasi Auto-Save (LocalStorage) ---
       useEffect(() => {
@@ -256,6 +258,28 @@
 
       const standings = useMemo(() =>
         buildStandings(players, matches, checkedIn), [players, matches, checkedIn]);
+
+      const mbgPlayer = useMemo(() => {
+        if (standings.length === 0) return null;
+        let maxR = -1;
+        let candidate = null;
+        standings.forEach(p => {
+          if (p.totalR > maxR) {
+            maxR = p.totalR;
+            candidate = p;
+          } else if (p.totalR === maxR && maxR > 0) {
+            // Jika poin underdog sama, pilih yang tier-nya lebih rendah
+            if (TIER_WEIGHT[p.tier] < TIER_WEIGHT[candidate?.tier || "S"]) {
+              candidate = p;
+            }
+          }
+        });
+        if (maxR > 0) return candidate;
+        
+        // Fallback: Pemain tier bawah (C, D, E) dengan win terbanyak jika tidak ada poin underdog
+        const lowerTiers = standings.filter(p => ["C", "D", "E"].includes(p.tier) && p.W > 0);
+        return lowerTiers.length > 0 ? lowerTiers[0] : null;
+      }, [standings]);
 
       const occupiedCourts = useMemo(() =>
         new Set(ongoingMatches.map(m => m.courtId)), [ongoingMatches]);
@@ -335,10 +359,21 @@
       const getStandingsBlob = async () => {
         const el = document.getElementById("standings-board");
         if (!el) throw new Error("Tabel klasemen tidak ditemukan");
+        
+        // Simpan style asli
+        const originalCss = el.style.cssText;
+        // Paksa elemen melebar penuh sesuai lebar tabel (fit-content) agar bagian kanan tidak terpotong saat difoto di HP
+        el.style.width = "max-content";
+        el.style.minWidth = "100%";
+
         const canvas = await window.html2canvas(el, { 
           backgroundColor: "#0a0a0f",
           scale: 2 
         });
+
+        // Kembalikan ke style awal setelah gambar selesai dibuat
+        el.style.cssText = originalCss;
+
         return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
       };
 
@@ -496,7 +531,7 @@
               {[
                 { key: "standings", label: "Klasemen" },
                 { key: "courts", label: "Lapangan" },
-                { key: "checkin", label: "Check-in" },
+                { key: "checkin", label: "Pemain" },
                 { key: "formula", label: "Aturan" },
               ].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -517,6 +552,14 @@
               <div>
                 <div id="standings-board" style={{ padding: "12px", background: "#0a0a0f", borderRadius: 14, margin: "-12px", marginBottom: "16px" }}>
                   
+                  {/* Judul Klasemen */}
+                  <div style={{ textAlign: "center", marginBottom: 16, marginTop: 4 }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#e8e8f0", letterSpacing: "-0.02em" }}>KLASEMEN</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+                      {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
+                  </div>
+
                   {/* Ucapan Selamat Dinamis */}
                   {standings.length > 0 && (
                     <div style={{
@@ -525,12 +568,17 @@
                       border: "1px solid #4f46e540", fontSize: 13, lineHeight: 1.5,
                       color: "#e0e7ff"
                     }}>
-                      <div style={{ marginBottom: 4 }}>
-                        🎉 Selamat untuk <strong style={{ color: "#fbbf24" }}>{standings[0].name}</strong> di posisi puncak!
+                      <div style={{ marginBottom: 6 }}>
+                        👑 <strong style={{ color: "#fbbf24" }}>{standings[0].name}</strong>, Kanda bangga sama kamu!
                       </div>
                       {standings.length > 1 && (
-                        <div style={{ fontSize: 12, color: "#a5b4fc" }}>
-                          🔥 Tetap semangat untuk <strong style={{ color: "#f87171" }}>{standings[standings.length - 1].name}</strong> di posisi terbawah, ayo kejar poinnya!
+                        <div style={{ marginBottom: 6, color: "#fca5a5", fontSize: 12 }}>
+                          🔥 <strong style={{ color: "#f87171" }}>{standings[standings.length - 1].name}</strong>, hari ini dicaci maki, dihina, di smash, minggu depan ? saya akan lawan!
+                        </div>
+                      )}
+                      {mbgPlayer && (
+                        <div style={{ color: "#a5b4fc", fontSize: 12 }}>
+                          ⭐ <strong style={{ color: "#818cf8" }}>{mbgPlayer.name}</strong>, jadi MBG (Main Badminton Gacor) hari ini !
                         </div>
                       )}
                     </div>
@@ -608,6 +656,7 @@
                       <div><strong style={{color: "#e8e8f0"}}>Skor:</strong> Total poin murni (TS)</div>
                       <div><strong style={{color: "#e8e8f0"}}>DIFF:</strong> Selisih poin (+/-)</div>
                       <div><strong style={{color: "#e8e8f0"}}>+M:</strong> Kompensasi absen</div>
+                      <div style={{gridColumn: "1 / -1", marginTop: 4}}><strong style={{color: "#e8e8f0"}}>MBG:</strong> Main Badminton Gacor (Pemain <i>underdog</i> / MVP yang paling sering mengimbangi atau menang lawan tier atas)</div>
                       <div style={{gridColumn: "1 / -1", marginTop: 4, paddingTop: 4, borderTop: "1px dashed #ffffff14"}}>
                         <strong style={{color: "#a78bfa"}}>P (Total Poin):</strong> TS + Status Match + Subsidi + M
                       </div>
@@ -835,12 +884,18 @@
                                   <div style={{ fontSize: 11, color: "#4ade80", marginTop: 1 }}>● Sedang bermain</div>
                                 )}
                               </div>
-                              {!isPlaying && (
-                                <div onClick={(e) => handleDeletePlayer(p.id, p.name, e)} style={{
-                                  padding: "4px 8px", background: "#7f1d1d30", color: "#fca5a5", borderRadius: 6,
-                                  fontSize: 11, border: "1px solid #991b1b50", cursor: "pointer", display: "flex", alignItems: "center"
-                                }}>Hapus</div>
-                              )}
+                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                <div onClick={(e) => { e.stopPropagation(); setEditingPlayer(p); }} style={{
+                                  padding: "4px 8px", background: "#37415130", color: "#d1d5db", borderRadius: 6,
+                                  fontSize: 11, border: "1px solid #4b556350", cursor: "pointer", display: "flex", alignItems: "center"
+                                }}>Edit</div>
+                                {!isPlaying && (
+                                  <div onClick={(e) => handleDeletePlayer(p.id, p.name, e)} style={{
+                                    padding: "4px 8px", background: "#7f1d1d30", color: "#fca5a5", borderRadius: 6,
+                                    fontSize: 11, border: "1px solid #991b1b50", cursor: "pointer", display: "flex", alignItems: "center"
+                                  }}>Hapus</div>
+                                )}
+                              </div>
                               <div style={{
                                 width: 22, height: 22, borderRadius: 6,
                                 background: isIn ? "#4ade8020" : "#ffffff08",
@@ -965,6 +1020,18 @@
               court={manualCourt} setCourt={setManualCourt}
               onClose={() => { setManualModal(false); setManualSelected([]); }}
               onSubmit={handleManualMatch}
+            />
+          )}
+
+          {editingPlayer && (
+            <EditPlayerModal
+              player={editingPlayer}
+              onClose={() => setEditingPlayer(null)}
+              onSave={(id, newName, newTier) => {
+                setPlayers(prev => prev.map(p => p.id === id ? { ...p, name: newName, tier: newTier } : p));
+                setEditingPlayer(null);
+                showNotify("Data pemain berhasil diperbarui!");
+              }}
             />
           )}
 
@@ -1121,10 +1188,23 @@
 
       const updateGame = (idx, team, val) => {
         const n = [...games];
-        const num = Math.max(0, Math.min(30, parseInt(val) || 0));
+        // Jika input dikosongkan, simpan sebagai string kosong sementara agar 0 membandel hilang
+        let num = val === "" ? "" : parseInt(val, 10);
+        if (num !== "" && isNaN(num)) return;
+        if (num !== "") num = Math.max(0, Math.min(30, num));
         n[idx] = { ...n[idx], [team]: num };
         setGames(n);
       };
+
+      const handleSave = () => {
+        // Sanitasi: Pastikan string kosong kembali menjadi 0 sebelum disimpan ke sistem
+        const sanitizedGames = games.map(g => ({
+          t1: g.t1 === "" ? 0 : g.t1,
+          t2: g.t2 === "" ? 0 : g.t2
+        }));
+        onSubmit(sanitizedGames);
+      };
+
       const addGame = () => games.length < 3 && setGames(prev => [...prev, { t1: 0, t2: 0 }]);
       const removeGame = idx => games.length > 1 && setGames(prev => prev.filter((_, i) => i !== idx));
 
@@ -1181,6 +1261,7 @@
                   <input
                     type="number" min={0} max={30} value={g.t1}
                     onChange={e => updateGame(idx, "t1", e.target.value)}
+                    onFocus={e => e.target.select()}
                     style={{
                       flex: 1, background: "#13131f", border: "1px solid #6366f140",
                       borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
@@ -1193,6 +1274,7 @@
                   <input
                     type="number" min={0} max={30} value={g.t2}
                     onChange={e => updateGame(idx, "t2", e.target.value)}
+                    onFocus={e => e.target.select()}
                     style={{
                       flex: 1, background: "#13131f", border: "1px solid #6366f140",
                       borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
@@ -1214,7 +1296,7 @@
               }}>+ Tambah Set</button>
             )}
 
-            <button onClick={() => onSubmit(games)} style={{
+            <button onClick={handleSave} style={{
               width: "100%", padding: "14px 0",
               background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
               border: "none", borderRadius: 10, cursor: "pointer",
@@ -1318,6 +1400,74 @@
             >
               {selected.length === 4 ? "Mulai Match" : `Pilih ${4 - selected.length} pemain lagi`}
             </button>
+          </div>
+        </div>
+      );
+    }
+
+    function EditPlayerModal({ player, onClose, onSave }) {
+      const [name, setName] = useState(player.name);
+      const [tier, setTier] = useState(player.tier);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave(player.id, name.trim(), tier);
+      };
+
+      return (
+        <div style={{
+          position: "fixed", inset: 0, background: "#000000cc",
+          zIndex: 200, display: "flex", alignItems: "flex-end",
+        }} onClick={onClose}>
+          <div style={{
+            background: "#13131f", borderRadius: "18px 18px 0 0",
+            padding: "20px 20px 36px", width: "100%",
+            border: "1px solid #ffffff14",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Edit Pemain</span>
+              <button onClick={onClose} style={{
+                background: "#ffffff12", border: "none", color: "#9ca3af",
+                borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
+              }}>×</button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4, display: "block" }}>Nama Pemain</label>
+                <input
+                  type="text" value={name} onChange={e => setName(e.target.value)}
+                  style={{
+                    width: "100%", background: "#0a0a0f", border: "1px solid #ffffff20",
+                    padding: "12px", borderRadius: 8, color: "#fff", fontSize: 14, outline: "none",
+                    fontFamily: "'DM Sans', sans-serif"
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4, display: "block" }}>Tier</label>
+                <select
+                  value={tier} onChange={e => setTier(e.target.value)}
+                  style={{
+                    width: "100%", background: "#0a0a0f", border: "1px solid #ffffff20",
+                    padding: "12px", borderRadius: 8, color: "#fff", fontSize: 14, outline: "none",
+                    fontFamily: "'DM Sans', sans-serif"
+                  }}
+                >
+                  {Object.keys(TIER_WEIGHT).map(t => (
+                    <option key={t} value={t}>Tier {t} ({TIER_WEIGHT[t]} pts)</option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" style={{
+                width: "100%", padding: "14px 0", marginTop: 8,
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                border: "none", borderRadius: 10, cursor: "pointer",
+                color: "#fff", fontWeight: 700, fontSize: 15,
+                fontFamily: "'DM Sans', sans-serif"
+              }}>Simpan Perubahan</button>
+            </form>
           </div>
         </div>
       );
