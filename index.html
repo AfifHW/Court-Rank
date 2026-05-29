@@ -103,7 +103,21 @@
       const t2Score = games.reduce((s, g) => s + g.t2, 0);
       const gamesWonT1 = games.filter(g => g.t1 > g.t2).length;
       const gamesWonT2 = games.filter(g => g.t2 > g.t1).length;
-      const t1Win = gamesWonT1 > gamesWonT2;
+
+      let t1Win = gamesWonT1 > gamesWonT2;
+      let t2Win = gamesWonT2 > gamesWonT1;
+      let isTie = gamesWonT1 === gamesWonT2;
+
+      // Jika game sama (misal 1-1 karena stop kecapekan), tentukan pemenang dari total skor (poin)
+      if (isTie) {
+        if (t1Score > t2Score) {
+          t1Win = true;
+          isTie = false;
+        } else if (t2Score > t1Score) {
+          t2Win = true;
+          isTie = false;
+        }
+      }
 
       const getWeight = id => TIER_WEIGHT[players.find(p => p.id === id)?.tier || "E"];
       const tw1 = team1.reduce((s, id) => s + getWeight(id), 0);
@@ -111,31 +125,39 @@
       const diff = Math.abs(tw1 - tw2);
       const underdogTeam = tw1 < tw2 ? 1 : tw2 < tw1 ? 2 : 0;
 
-      const calcR = (isWinner, isUnderdog) => {
+      const calcR = (isWinner, isDraw, isUnderdog) => {
         if (!isUnderdog) return 0;
-        if (diff >= 200) return isWinner ? 4 : 2;
-        if (diff >= 50) return isWinner ? 2 : 1;
+        if (diff >= 200) return isWinner ? 4 : (isDraw ? 2 : 2);
+        if (diff >= 50) return isWinner ? 2 : (isDraw ? 1 : 1);
         return 0;
       };
 
-      const lastGame = games[games.length - 1];
+      const lastGame = games[games.length - 1] || {t1: 0, t2: 0};
       const isCloseLoss = (loserScore) => [18, 19, 20].includes(loserScore);
       const isRubber = games.length === 3;
 
-      const calcS = (isWinner, loserLastGameScore) => {
+      const calcS = (isWinner, isDraw, loserLastGameScore) => {
         if (isWinner) return 3;
+        if (isDraw) return 1; // Poin seri dibagi rata
         if (isRubber || isCloseLoss(loserLastGameScore)) return 1;
         return 0;
       };
 
-      const loserLastGameScore = t1Win ? lastGame.t2 : lastGame.t1;
-      const t1S = calcS(t1Win, loserLastGameScore);
-      const t2S = calcS(!t1Win, loserLastGameScore);
+      // Tentukan skor game terakhir dari tim yang kalah
+      let loserLastGameScore = 0;
+      if (t1Win) loserLastGameScore = lastGame.t2;
+      else if (t2Win) loserLastGameScore = lastGame.t1;
+      else loserLastGameScore = lastGame.t1; // Jika seri sempurna, close loss tidak dihitung lagi karena poin S otomatis 1
+
+      const t1S = calcS(t1Win, isTie, loserLastGameScore);
+      const t2S = calcS(t2Win, isTie, loserLastGameScore);
+
+      const t1R = calcR(t1Win, isTie, underdogTeam === 1);
+      const t2R = calcR(t2Win, isTie, underdogTeam === 2);
 
       return {
-        t1Score, t2Score, t1Win,
-        t1R: calcR(t1Win, underdogTeam === 1),
-        t2R: calcR(!t1Win, underdogTeam === 2),
+        t1Score, t2Score, t1Win, t2Win, isTie,
+        t1R, t2R,
         t1S, t2S,
         tw1, tw2,
       };
@@ -151,20 +173,26 @@
         const myMatches = matches.filter(
           m => m.status === "done" && [...m.team1, ...m.team2].includes(pid)
         );
-        let totalPts = 0, wins = 0, losses = 0, totalFor = 0, totalAgainst = 0, gamesPlayed = 0, totalR = 0;
+        let totalPts = 0, wins = 0, losses = 0, draws = 0, totalFor = 0, totalAgainst = 0, gamesPlayed = 0, totalR = 0;
 
         myMatches.forEach(m => {
           const res = calcMatchResult(m, players);
           const onT1 = m.team1.includes(pid);
           const myScore = onT1 ? res.t1Score : res.t2Score;
           const oppScore = onT1 ? res.t2Score : res.t1Score;
-          const won = onT1 ? res.t1Win : !res.t1Win;
+          const won = onT1 ? res.t1Win : res.t2Win;
+          const isDraw = res.isTie;
           const S = onT1 ? res.t1S : res.t2S;
           const R = onT1 ? res.t1R : res.t2R;
+          
           totalFor += myScore;
           totalAgainst += oppScore;
           gamesPlayed += m.games.length;
-          if (won) wins++; else losses++;
+          
+          if (won) wins++; 
+          else if (isDraw) draws++; 
+          else losses++;
+          
           totalR += R;
           const TS = myScore;
           totalPts += TS + S + R;
@@ -178,7 +206,7 @@
           ...player,
           G: gamesPlayed,
           matchesPlayed: myMatches.length,
-          W: wins, L: losses,
+          W: wins, D: draws, L: losses,
           totalFor, totalAgainst,
           diff, M, totalR,
           P: totalPtsWithM,
@@ -588,7 +616,7 @@
                     <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 540 }}>
                       <thead>
                         <tr style={{ background: "#13131f" }}>
-                          {["#", "Pemain", "Tier", "G", "W-L", "Skor", "DIFF", "+M", "P"].map((h, i) => (
+                          {["#", "Pemain", "Tier", "G", "W-D-L", "Skor", "DIFF", "+M", "P"].map((h, i) => (
                             <th key={h} style={{
                               padding: "10px 8px", fontSize: 11, fontWeight: 600,
                               color: "#6b7280", textAlign: i <= 1 ? "left" : "center",
@@ -616,9 +644,10 @@
                                 <TierBadge tier={p.tier} small />
                               </td>
                               <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, color: "#9ca3af" }}>{p.G}</td>
-                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>
                                 <span style={{ color: "#4ade80" }}>{p.W}</span>
-                                <span style={{ color: "#4b5563" }}>-</span>
+                                <span style={{ color: "#6b7280" }}>-</span>
+                                {p.D > 0 ? <><span style={{ color: "#fbbf24" }}>{p.D}</span><span style={{ color: "#6b7280" }}>-</span></> : null}
                                 <span style={{ color: "#f87171" }}>{p.L}</span>
                               </td>
                               <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace", color: "#c4b5fd" }}>{p.totalFor}</td>
@@ -652,7 +681,7 @@
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 11, color: "#6b7280" }}>
                       <div><strong style={{color: "#e8e8f0"}}>Tier:</strong> Peringkat kemampuan</div>
                       <div><strong style={{color: "#e8e8f0"}}>G:</strong> Set/Game dimainkan</div>
-                      <div><strong style={{color: "#e8e8f0"}}>W-L:</strong> Menang - Kalah</div>
+                      <div><strong style={{color: "#e8e8f0"}}>W-D-L:</strong> Menang - Seri - Kalah</div>
                       <div><strong style={{color: "#e8e8f0"}}>Skor:</strong> Total poin murni (TS)</div>
                       <div><strong style={{color: "#e8e8f0"}}>DIFF:</strong> Selisih poin (+/-)</div>
                       <div><strong style={{color: "#e8e8f0"}}>+M:</strong> Kompensasi absen</div>
@@ -960,8 +989,12 @@
                       <span style={{ fontWeight: 600, fontSize: 13, color: "#e8e8f0" }}>Status Match</span>
                     </div>
                     <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      <div style={{ marginBottom: 4, padding: "6px 8px", background: "#f59e0b15", border: "1px dashed #f59e0b40", borderRadius: 6, color: "#fbbf24" }}>
+                        <strong>INFO SERI:</strong> Jika match hanya 2 set dan 1-1, pemenang diadu dari <strong>Total Skor</strong>. Jika skor juga sama persis, maka dianggap Seri (Draw).
+                      </div>
                       <ul style={{ margin: "4px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 4 }}>
                         <li><strong style={{ color: "#d1d5db" }}>Menang:</strong> +3 Poin</li>
+                        <li><strong style={{ color: "#d1d5db" }}>Seri (Draw):</strong> +1 Poin (Sama kuat)</li>
                         <li><strong style={{ color: "#d1d5db" }}>Kalah Ketat:</strong> +1 Poin (Kalah rubber game atau skor kalah mepet 18, 19, 20)</li>
                         <li><strong style={{ color: "#d1d5db" }}>Kalah Telak:</strong> 0 Poin</li>
                       </ul>
@@ -1138,9 +1171,7 @@
 
     function DoneMatchCard({ match, players, onEdit }) {
       const getPlayer = id => players.find(p => p.id === id);
-      const t1Total = match.games.reduce((s, g) => s + g.t1, 0);
-      const t2Total = match.games.reduce((s, g) => s + g.t2, 0);
-      const t1Win = match.games.filter(g => g.t1 > g.t2).length > match.games.filter(g => g.t2 > g.t1).length;
+      const res = calcMatchResult(match, players);
 
       return (
         <div style={{
@@ -1161,20 +1192,20 @@
             <div style={{ flex: 1 }}>
               {match.team1.map(id => {
                 const p = getPlayer(id);
-                return p ? <div key={id} style={{ fontSize: 12, color: t1Win ? "#e8e8f0" : "#6b7280", marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
+                return p ? <div key={id} style={{ fontSize: 12, color: res.t1Win ? "#e8e8f0" : (res.isTie ? "#d1d5db" : "#6b7280"), marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
               })}
             </div>
             <div style={{ textAlign: "center", minWidth: 70 }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 16, fontWeight: 600 }}>
-                <span style={{ color: t1Win ? "#4ade80" : "#f87171" }}>{t1Total}</span>
+                <span style={{ color: res.t1Win ? "#4ade80" : (res.isTie ? "#fbbf24" : "#f87171") }}>{res.t1Score}</span>
                 <span style={{ color: "#374151", margin: "0 4px" }}>:</span>
-                <span style={{ color: !t1Win ? "#4ade80" : "#f87171" }}>{t2Total}</span>
+                <span style={{ color: res.t2Win ? "#4ade80" : (res.isTie ? "#fbbf24" : "#f87171") }}>{res.t2Score}</span>
               </div>
             </div>
             <div style={{ flex: 1, textAlign: "right" }}>
               {match.team2.map(id => {
                 const p = getPlayer(id);
-                return p ? <div key={id} style={{ fontSize: 12, color: !t1Win ? "#e8e8f0" : "#6b7280", marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
+                return p ? <div key={id} style={{ fontSize: 12, color: res.t2Win ? "#e8e8f0" : (res.isTie ? "#d1d5db" : "#6b7280"), marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
               })}
             </div>
           </div>
