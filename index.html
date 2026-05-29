@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Court-rank</title>
+  
+  <!-- Font Setup -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- html2canvas for Sharing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Import Maps for ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client"
+      }
+    }
+  </script>
+
+  <!-- Babel for parsing JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0a0a0f;
+      color: #e8e8f0;
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    * { box-sizing: border-box; }
+    
+    /* Simple CSS Reset for inputs/buttons */
+    input, button, select { font-family: inherit; }
+    
+    @keyframes bounce {
+      0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+      50% { transform: translateY(0); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-type="module">
+    import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+    import { createRoot } from "react-dom/client";
+
+    // ==========================================
+    // LOGIKA & DATA APLIKASI
+    // ==========================================
+    const TIER_WEIGHT = { S: 500, A: 400, B: 300, C: 200, D: 100, E: 50 };
+    const TIER_COLORS = {
+      S: { bg: "#fef3c7", text: "#92400e", border: "#fcd34d" },
+      A: { bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd" },
+      B: { bg: "#dbeafe", text: "#1e40af", border: "#93c5fd" },
+      C: { bg: "#dcfce7", text: "#166534", border: "#86efac" },
+      D: { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" },
+      E: { bg: "#fce7f3", text: "#9d174d", border: "#f9a8d4" },
+    };
+
+    const INITIAL_PLAYERS = [
+      { id: 1, name: "Wowo", tier: "S" },
+      { id: 2, name: "Bunted", tier: "A" },
+      { id: 3, name: "Lilbah", tier: "A" },
+      { id: 4, name: "Mulyono", tier: "B" },
+      { id: 5, name: "Gib run", tier: "B" },
+      { id: 6, name: "Loe Hut", tier: "C" },
+      { id: 7, name: "Tok hir", tier: "C" },
+      { id: 8, name: "PuHan", tier: "D" },
+      { id: 9, name: "Dak Dan", tier: "D" },
+      { id: 10, name: "Siahr oni", tier: "E" },
+    ];
+
+    const INITIAL_MATCHES = [
+      {
+        id: "m1", courtId: 1, status: "done",
+        team1: [1, 4], team2: [2, 7],
+        games: [{ t1: 21, t2: 15 }, { t1: 18, t2: 21 }, { t1: 21, t2: 19 }],
+      },
+      {
+        id: "m2", courtId: 2, status: "done",
+        team1: [3, 6], team2: [5, 8],
+        games: [{ t1: 21, t2: 12 }, { t1: 21, t2: 14 }],
+      },
+      {
+        id: "m3", courtId: 1, status: "done",
+        team1: [9, 1], team2: [10, 2],
+        games: [{ t1: 21, t2: 18 }, { t1: 21, t2: 20 }],
+      },
+    ];
+
+    function calcMatchResult(match, players) {
+      const { team1, team2, games } = match;
+      const t1Score = games.reduce((s, g) => s + g.t1, 0);
+      const t2Score = games.reduce((s, g) => s + g.t2, 0);
+      const gamesWonT1 = games.filter(g => g.t1 > g.t2).length;
+      const gamesWonT2 = games.filter(g => g.t2 > g.t1).length;
+      const t1Win = gamesWonT1 > gamesWonT2;
+
+      const getWeight = id => TIER_WEIGHT[players.find(p => p.id === id)?.tier || "E"];
+      const tw1 = team1.reduce((s, id) => s + getWeight(id), 0);
+      const tw2 = team2.reduce((s, id) => s + getWeight(id), 0);
+      const diff = Math.abs(tw1 - tw2);
+      const underdogTeam = tw1 < tw2 ? 1 : tw2 < tw1 ? 2 : 0;
+
+      const calcR = (isWinner, isUnderdog) => {
+        if (!isUnderdog) return 0;
+        if (diff >= 200) return isWinner ? 4 : 2;
+        if (diff >= 50) return isWinner ? 2 : 1;
+        return 0;
+      };
+
+      const lastGame = games[games.length - 1];
+      const isCloseLoss = (loserScore) => [18, 19, 20].includes(loserScore);
+      const isRubber = games.length === 3;
+
+      const calcS = (isWinner, loserLastGameScore) => {
+        if (isWinner) return 3;
+        if (isRubber || isCloseLoss(loserLastGameScore)) return 1;
+        return 0;
+      };
+
+      const loserLastGameScore = t1Win ? lastGame.t2 : lastGame.t1;
+      const t1S = calcS(t1Win, loserLastGameScore);
+      const t2S = calcS(!t1Win, loserLastGameScore);
+
+      return {
+        t1Score, t2Score, t1Win,
+        t1R: calcR(t1Win, underdogTeam === 1),
+        t2R: calcR(!t1Win, underdogTeam === 2),
+        t1S, t2S,
+        tw1, tw2,
+      };
+    }
+
+    function buildStandings(players, matches, checkedIn) {
+      const maxMatches = Math.max(...players.map(p =>
+        matches.filter(m => m.status === "done" && [...m.team1, ...m.team2].includes(p.id)).length
+      ), 0);
+
+      return players.map(player => {
+        const pid = player.id;
+        const myMatches = matches.filter(
+          m => m.status === "done" && [...m.team1, ...m.team2].includes(pid)
+        );
+        let totalPts = 0, wins = 0, losses = 0, totalFor = 0, totalAgainst = 0, gamesPlayed = 0;
+
+        myMatches.forEach(m => {
+          const res = calcMatchResult(m, players);
+          const onT1 = m.team1.includes(pid);
+          const myScore = onT1 ? res.t1Score : res.t2Score;
+          const oppScore = onT1 ? res.t2Score : res.t1Score;
+          const won = onT1 ? res.t1Win : !res.t1Win;
+          const S = onT1 ? res.t1S : res.t2S;
+          const R = onT1 ? res.t1R : res.t2R;
+          totalFor += myScore;
+          totalAgainst += oppScore;
+          gamesPlayed += m.games.length;
+          if (won) wins++; else losses++;
+          const TS = myScore;
+          totalPts += TS + S + R;
+        });
+
+        const M = (maxMatches - myMatches.length) * 10;
+        const totalPtsWithM = totalPts + M;
+        const diff = totalFor - totalAgainst;
+
+        return {
+          ...player,
+          G: gamesPlayed,
+          matchesPlayed: myMatches.length,
+          W: wins, L: losses,
+          totalFor, totalAgainst,
+          diff, M,
+          P: totalPtsWithM,
+        };
+      }).sort((a, b) => {
+        if (b.P !== a.P) return b.P - a.P;
+        if (b.diff !== a.diff) return b.diff - a.diff;
+        return b.W - a.W;
+      });
+    }
+
+    const TierBadge = ({ tier, small }) => {
+      const c = TIER_COLORS[tier];
+      return (
+        <span style={{
+          background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+          borderRadius: 6, padding: small ? "1px 6px" : "2px 8px",
+          fontSize: small ? 11 : 12, fontWeight: 600, letterSpacing: "0.03em",
+        }}>{tier}</span>
+      );
+    };
+
+    function App() {
+      const [isLoaded, setIsLoaded] = useState(false);
+
+      const [players, setPlayers] = useState(INITIAL_PLAYERS);
+      const [matches, setMatches] = useState(INITIAL_MATCHES);
+      const [checkedIn, setCheckedIn] = useState(new Set([1, 2, 3, 4, 5, 6, 7, 8]));
+      const [numCourts, setNumCourts] = useState(3);
+      
+      const [tab, setTab] = useState("standings");
+      const [isProcessing, setIsProcessing] = useState(null);
+      const courts = useMemo(() => Array.from({length: numCourts}, (_, i) => i + 1), [numCourts]);
+
+      const [newPlayerName, setNewPlayerName] = useState("");
+      const [newPlayerTier, setNewPlayerTier] = useState("C");
+
+      const [scoreModal, setScoreModal] = useState(null);
+      const [manualModal, setManualModal] = useState(false);
+      const [manualSelected, setManualSelected] = useState([]);
+      const [manualCourt, setManualCourt] = useState(1);
+      const [notify, setNotify] = useState(null);
+      const [confirmDialog, setConfirmDialog] = useState(null);
+
+      // --- Integrasi Auto-Save (LocalStorage) ---
+      useEffect(() => {
+        const savedState = localStorage.getItem('courtRankState');
+        if (savedState) {
+          try {
+            const data = JSON.parse(savedState);
+            if (data.players) setPlayers(data.players);
+            if (data.matches) setMatches(data.matches);
+            if (data.checkedIn) setCheckedIn(new Set(data.checkedIn));
+            if (data.numCourts) setNumCourts(data.numCourts);
+          } catch(e) { console.error(e); }
+        }
+        setIsLoaded(true);
+      }, []);
+
+      useEffect(() => {
+        if (!isLoaded) return;
+        localStorage.setItem('courtRankState', JSON.stringify({
+          players, matches, checkedIn: Array.from(checkedIn), numCourts
+        }));
+      }, [players, matches, checkedIn, numCourts, isLoaded]);
+      // ----------------------------------------
+
+      const ongoingMatches = useMemo(() =>
+        matches.filter(m => m.status === "ongoing"), [matches]);
+
+      const activePlayers = useMemo(() =>
+        new Set(ongoingMatches.flatMap(m => [...m.team1, ...m.team2])), [ongoingMatches]);
+
+      const availablePlayers = useMemo(() =>
+        players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id)), [players, checkedIn, activePlayers]);
+
+      const standings = useMemo(() =>
+        buildStandings(players, matches, checkedIn), [players, matches, checkedIn]);
+
+      const occupiedCourts = useMemo(() =>
+        new Set(ongoingMatches.map(m => m.courtId)), [ongoingMatches]);
+
+      const showNotify = (msg, type = "success") => {
+        setNotify({ msg, type });
+        setTimeout(() => setNotify(null), 2500);
+      };
+
+      const handleAddPlayer = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!newPlayerName.trim()) return;
+        const newPlayer = {
+          id: Date.now(),
+          name: newPlayerName.trim(),
+          tier: newPlayerTier,
+        };
+        setPlayers(prev => [...prev, newPlayer]);
+        setCheckedIn(prev => new Set(prev).add(newPlayer.id));
+        setNewPlayerName("");
+        showNotify(`${newPlayer.name} (Tier ${newPlayerTier}) ditambahkan!`);
+      };
+
+      const toggleCheckIn = (id) => {
+        setCheckedIn(prev => {
+          const n = new Set(prev);
+          n.has(id) ? n.delete(id) : n.add(id);
+          return n;
+        });
+      };
+
+      const handleDeletePlayer = (id, name, e) => {
+        e.stopPropagation();
+        setConfirmDialog({
+          title: "Hapus Pemain",
+          message: `Yakin ingin menghapus ${name}? Data klasemen mereka akan ditarik.`,
+          isDanger: true,
+          onConfirm: () => {
+            setPlayers(prev => prev.filter(p => p.id !== id));
+            setCheckedIn(prev => {
+              const n = new Set(prev);
+              n.delete(id);
+              return n;
+            });
+            showNotify(`${name} berhasil dihapus.`);
+            setConfirmDialog(null);
+          }
+        });
+      };
+
+      const handleResetAllData = () => {
+        setConfirmDialog({
+          title: "🚨 PERINGATAN 🚨",
+          message: "Apakah Anda yakin ingin MENGHAPUS SEMUA DATA? Tindakan ini tidak bisa dibatalkan!",
+          isDanger: true,
+          onConfirm: () => {
+            setPlayers([]);
+            setMatches([]);
+            setCheckedIn(new Set());
+            setNumCourts(3);
+            showNotify("Semua data berhasil di-reset!", "success");
+            setConfirmDialog(null);
+          }
+        });
+      };
+
+      const handleReduceCourt = () => {
+        if (numCourts > 1) {
+          if (occupiedCourts.has(numCourts)) {
+            showNotify(`Lapangan ${numCourts} sedang terpakai!`, "error");
+          } else {
+            setNumCourts(prev => prev - 1);
+          }
+        }
+      };
+
+      const getStandingsBlob = async () => {
+        const el = document.getElementById("standings-board");
+        if (!el) throw new Error("Tabel klasemen tidak ditemukan");
+        const canvas = await window.html2canvas(el, { 
+          backgroundColor: "#0a0a0f",
+          scale: 2 
+        });
+        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      };
+
+      const handleDownloadImage = async () => {
+        setIsProcessing("download");
+        try {
+          const blob = await getStandingsBlob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Klasemen-Courtrank-${new Date().toISOString().slice(0,10)}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showNotify("Gambar berhasil disimpan!", "success");
+        } catch (err) {
+          console.error(err);
+          showNotify("Gagal menyimpan gambar", "error");
+        }
+        setIsProcessing(null);
+      };
+
+      const handleShareWA = async () => {
+        setIsProcessing("share");
+        try {
+          const blob = await getStandingsBlob();
+          const file = new File([blob], "klasemen.jpg", { type: "image/jpeg" });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "Klasemen Court-rank",
+              files: [file]
+            });
+          } else {
+            showNotify("Browser tidak mendukung share langsung. Silakan gunakan tombol Simpan.", "error");
+          }
+        } catch (err) {
+          // Abaikan error jika user membatalkan share (AbortError)
+          if (err.name !== "AbortError") {
+            console.error(err);
+            showNotify("Gagal membagikan gambar", "error");
+          }
+        }
+        setIsProcessing(null);
+      };
+
+      const handleSmartMatch = () => {
+        const avail = availablePlayers;
+        if (avail.length < 4) {
+          showNotify("Butuh minimal 4 pemain tersedia!", "error"); return;
+        }
+        const freeCourt = courts.find(c => !occupiedCourts.has(c));
+        if (!freeCourt) {
+          showNotify("Semua lapangan sedang terpakai!", "error"); return;
+        }
+
+        let best = null, bestDiff = Infinity;
+        for (let i = 0; i < avail.length - 3; i++)
+          for (let j = i + 1; j < avail.length - 2; j++)
+            for (let k = j + 1; k < avail.length - 1; k++)
+              for (let l = k + 1; l < avail.length; l++) {
+                const combo = [avail[i], avail[j], avail[k], avail[l]];
+                const pairs = [
+                  [[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]
+                ];
+                pairs.forEach(([a, b]) => {
+                  const w1 = a.reduce((s, x) => s + TIER_WEIGHT[combo[x].tier], 0);
+                  const w2 = b.reduce((s, x) => s + TIER_WEIGHT[combo[x].tier], 0);
+                  const d = Math.abs(w1 - w2);
+                  if (d < bestDiff) {
+                    bestDiff = d;
+                    best = {
+                      team1: a.map(x => combo[x].id),
+                      team2: b.map(x => combo[x].id),
+                    };
+                  }
+                });
+              }
+
+        if (best) {
+          const newMatch = {
+            id: `m${Date.now()}`, courtId: freeCourt, status: "ongoing",
+            team1: best.team1, team2: best.team2, games: [{ t1: 0, t2: 0 }],
+          };
+          setMatches(prev => [...prev, newMatch]);
+          showNotify(`Match dibuat di Lapangan ${freeCourt}!`);
+        }
+      };
+
+      const handleManualMatch = () => {
+        if (manualSelected.length !== 4) {
+          showNotify("Pilih tepat 4 pemain!", "error"); return;
+        }
+        if (occupiedCourts.has(manualCourt)) {
+          showNotify(`Lapangan ${manualCourt} sudah terpakai!`, "error"); return;
+        }
+        const newMatch = {
+          id: `m${Date.now()}`, courtId: manualCourt, status: "ongoing",
+          team1: manualSelected.slice(0, 2), team2: manualSelected.slice(2, 4),
+          games: [{ t1: 0, t2: 0 }],
+        };
+        setMatches(prev => [...prev, newMatch]);
+        setManualModal(false);
+        setManualSelected([]);
+        showNotify(`Match manual di Lapangan ${manualCourt} dimulai!`);
+      };
+
+      const handleSubmitScore = (matchId, games) => {
+        setMatches(prev => prev.map(m =>
+          m.id === matchId ? { ...m, status: "done", games } : m
+        ));
+        setScoreModal(null);
+        showNotify("Skor berhasil disimpan!");
+      };
+
+      if (!isLoaded) {
+        return (
+          <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0f", color: "#6366f1" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 32, animation: "bounce 1s infinite" }}>🎾</div>
+              <div style={{ fontWeight: 600 }}>Memuat Data...</div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#0a0a0f",
+          color: "#e8e8f0", maxWidth: 430, margin: "0 auto",
+          position: "relative",
+        }}>
+          {/* Header */}
+          <div style={{
+            background: "linear-gradient(135deg, #13131f 0%, #1a1a2e 100%)",
+            borderBottom: "1px solid #ffffff18", padding: "16px 20px 0",
+            position: "sticky", top: 0, zIndex: 100,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 16,
+              }}>🎾</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>Court-rank</div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: -1 }}>
+                  {checkedIn.size} hadir · {ongoingMatches.length} match berlangsung
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 0, borderTop: "1px solid #ffffff10" }}>
+              {[
+                { key: "standings", label: "Klasemen" },
+                { key: "courts", label: "Lapangan" },
+                { key: "checkin", label: "Check-in" },
+                { key: "formula", label: "Aturan" },
+              ].map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)} style={{
+                  flex: 1, background: "none", border: "none", cursor: "pointer",
+                  padding: "10px 0", fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
+                  color: tab === t.key ? "#a78bfa" : "#6b7280",
+                  borderBottom: tab === t.key ? "2px solid #a78bfa" : "2px solid transparent",
+                  transition: "all 0.15s",
+                }}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: "16px 16px 100px" }}>
+
+            {/* === STANDINGS TAB === */}
+            {tab === "standings" && (
+              <div>
+                <div id="standings-board" style={{ padding: "12px", background: "#0a0a0f", borderRadius: 14, margin: "-12px", marginBottom: "16px" }}>
+                  
+                  {/* Ucapan Selamat Dinamis */}
+                  {standings.length > 0 && (
+                    <div style={{
+                      background: "linear-gradient(135deg, #1e1b4b, #312e81)",
+                      padding: "12px 14px", borderRadius: 12, marginBottom: 14,
+                      border: "1px solid #4f46e540", fontSize: 13, lineHeight: 1.5,
+                      color: "#e0e7ff"
+                    }}>
+                      <div style={{ marginBottom: 4 }}>
+                        🎉 Selamat untuk <strong style={{ color: "#fbbf24" }}>{standings[0].name}</strong> di posisi puncak!
+                      </div>
+                      {standings.length > 1 && (
+                        <div style={{ fontSize: 12, color: "#a5b4fc" }}>
+                          🔥 Tetap semangat untuk <strong style={{ color: "#f87171" }}>{standings[standings.length - 1].name}</strong> di posisi terbawah, ayo kejar poinnya!
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #ffffff14" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 540 }}>
+                      <thead>
+                        <tr style={{ background: "#13131f" }}>
+                          {["#", "Pemain", "Tier", "G", "W-L", "Skor", "DIFF", "+M", "P"].map((h, i) => (
+                            <th key={h} style={{
+                              padding: "10px 8px", fontSize: 11, fontWeight: 600,
+                              color: "#6b7280", textAlign: i <= 1 ? "left" : "center",
+                              letterSpacing: "0.06em", textTransform: "uppercase",
+                              borderBottom: "1px solid #ffffff14", whiteSpace: "nowrap",
+                            }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {standings.map((p, idx) => {
+                          const medals = ["🥇", "🥈", "🥉"];
+                          return (
+                            <tr key={p.id} style={{
+                              background: idx % 2 === 0 ? "#0d0d1a" : "#0a0a14",
+                              borderBottom: "1px solid #ffffff08",
+                            }}>
+                              <td style={{ padding: "10px 8px", textAlign: "left", fontSize: 13, width: 32 }}>
+                                {idx < 3 ? medals[idx] : <span style={{ color: "#4b5563", fontWeight: 500 }}>{idx + 1}</span>}
+                              </td>
+                              <td style={{ padding: "10px 8px", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>
+                                {p.name}
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                                <TierBadge tier={p.tier} small />
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, color: "#9ca3af" }}>{p.G}</td>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                                <span style={{ color: "#4ade80" }}>{p.W}</span>
+                                <span style={{ color: "#4b5563" }}>-</span>
+                                <span style={{ color: "#f87171" }}>{p.L}</span>
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace", color: "#c4b5fd" }}>{p.totalFor}</td>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                                <span style={{ color: p.diff >= 0 ? "#4ade80" : "#f87171" }}>
+                                  {p.diff >= 0 ? "+" : ""}{p.diff}
+                                </span>
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center", fontSize: 12, color: "#fbbf24", fontFamily: "'DM Mono', monospace" }}>
+                                {p.M > 0 ? `+${p.M}` : "—"}
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                                <span style={{
+                                  background: "linear-gradient(135deg, #6366f120, #8b5cf220)",
+                                  border: "1px solid #6366f140",
+                                  color: "#a78bfa", fontWeight: 700, fontSize: 14,
+                                  borderRadius: 6, padding: "2px 8px",
+                                  fontFamily: "'DM Mono', monospace",
+                                }}>{p.P}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Legenda Klasemen */}
+                  <div style={{ marginTop: 16, background: "#13131f", padding: "12px", borderRadius: "10px", border: "1px solid #ffffff10" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>Legenda Klasemen</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 11, color: "#6b7280" }}>
+                      <div><strong style={{color: "#e8e8f0"}}>Tier:</strong> Peringkat kemampuan</div>
+                      <div><strong style={{color: "#e8e8f0"}}>G:</strong> Set/Game dimainkan</div>
+                      <div><strong style={{color: "#e8e8f0"}}>W-L:</strong> Menang - Kalah</div>
+                      <div><strong style={{color: "#e8e8f0"}}>Skor:</strong> Total poin murni (TS)</div>
+                      <div><strong style={{color: "#e8e8f0"}}>DIFF:</strong> Selisih poin (+/-)</div>
+                      <div><strong style={{color: "#e8e8f0"}}>+M:</strong> Kompensasi absen</div>
+                      <div style={{gridColumn: "1 / -1", marginTop: 4, paddingTop: 4, borderTop: "1px dashed #ffffff14"}}>
+                        <strong style={{color: "#a78bfa"}}>P (Total Poin):</strong> TS + Status Match + Subsidi + M
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 24, paddingBottom: 16 }}>
+                  <button onClick={handleDownloadImage} disabled={isProcessing !== null} style={{
+                    flex: 1, background: isProcessing === "download" ? "#4b5563" : "#1f2937",
+                    border: "1px solid #374151", borderRadius: 12, padding: "14px 16px", cursor: isProcessing !== null ? "default" : "pointer",
+                    color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                    {isProcessing === "download" ? "⏳" : "💾"} Simpan
+                  </button>
+                  <button onClick={handleShareWA} disabled={isProcessing !== null} style={{
+                    flex: 1, background: isProcessing === "share" ? "#4b5563" : "linear-gradient(135deg, #22c55e, #16a34a)",
+                    border: "none", borderRadius: 12, padding: "14px 16px", cursor: isProcessing !== null ? "default" : "pointer",
+                    color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    boxShadow: "0 4px 16px #22c55e25", fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                    {isProcessing === "share" ? "⏳" : "💬"} Kirim WA
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+            {/* === COURTS TAB === */}
+            {tab === "courts" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, background: "#13131f", padding: "10px 14px", borderRadius: 12, border: "1px solid #ffffff14" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af" }}>Jumlah Lapangan</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <button onClick={handleReduceCourt} style={{ background: "#ffffff10", border: "none", color: "#fff", width: 28, height: 28, borderRadius: 6, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#e8e8f0", minWidth: 20, textAlign: "center" }}>{numCourts}</span>
+                    <button onClick={() => setNumCourts(p => p + 1)} style={{ background: "#ffffff10", border: "none", color: "#fff", width: 28, height: 28, borderRadius: 6, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  </div>
+                </div>
+
+                {/* Matchmaking buttons */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  <button onClick={handleSmartMatch} style={{
+                    flex: 1, padding: "12px 0",
+                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none", borderRadius: 10, cursor: "pointer",
+                    color: "#fff", fontWeight: 600, fontSize: 13,
+                  }}>⚡ Smart Match</button>
+                  <button onClick={() => setManualModal(true)} style={{
+                    flex: 1, padding: "12px 0",
+                    background: "#13131f", border: "1px solid #ffffff20",
+                    borderRadius: 10, cursor: "pointer",
+                    color: "#e8e8f0", fontWeight: 500, fontSize: 13,
+                  }}>🎯 Manual</button>
+                </div>
+
+                {/* Court cards */}
+                {courts.map(courtId => {
+                  const activeMatch = ongoingMatches.find(m => m.courtId === courtId);
+                  return (
+                    <div key={courtId} style={{
+                      marginBottom: 12,
+                      background: "#13131f",
+                      border: `1px solid ${activeMatch ? "#6366f140" : "#ffffff14"}`,
+                      borderRadius: 14, overflow: "hidden",
+                    }}>
+                      <div style={{
+                        padding: "10px 14px",
+                        background: activeMatch ? "linear-gradient(90deg, #6366f115, transparent)" : "transparent",
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        borderBottom: "1px solid #ffffff0a",
+                      }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af" }}>
+                          Lapangan {courtId}
+                        </span>
+                        {activeMatch ? (
+                          <span style={{
+                            background: "#22c55e20", color: "#4ade80",
+                            fontSize: 11, fontWeight: 600, borderRadius: 20,
+                            padding: "2px 10px", letterSpacing: "0.05em",
+                          }}>● BERLANGSUNG</span>
+                        ) : (
+                          <span style={{ color: "#4b5563", fontSize: 11 }}>Kosong</span>
+                        )}
+                      </div>
+
+                      {activeMatch ? (
+                        <div style={{ padding: 14 }}>
+                          <MatchCard
+                            match={activeMatch}
+                            players={players}
+                            onScore={() => setScoreModal(activeMatch)}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{
+                          padding: "20px 14px", textAlign: "center",
+                          color: "#374151", fontSize: 13,
+                        }}>Lapangan kosong · Siap digunakan</div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Recent matches */}
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                    Match Selesai
+                  </div>
+                  {matches.filter(m => m.status === "done").slice().reverse().map(m => (
+                    <DoneMatchCard key={m.id} match={m} players={players} onEdit={() => setScoreModal(m)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* === CHECKIN TAB === */}
+            {tab === "checkin" && (
+              <div>
+                <div style={{
+                  background: "#13131f", borderRadius: 12, padding: 16,
+                  marginBottom: 20, border: "1px solid #ffffff14"
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#e8e8f0", marginBottom: 12 }}>Tambah Pemain Baru</div>
+                  <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+                    <input
+                      type="text" placeholder="Nama Pemain..." value={newPlayerName}
+                      onChange={(e) => setNewPlayerName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer(e)}
+                      style={{
+                        background: "#0a0a0f", border: "1px solid #ffffff20",
+                        padding: "10px 12px", borderRadius: 8, color: "#fff",
+                        fontSize: 13, outline: "none"
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select
+                        value={newPlayerTier} onChange={(e) => setNewPlayerTier(e.target.value)}
+                        style={{
+                          flex: 1, background: "#0a0a0f", border: "1px solid #ffffff20",
+                          padding: "10px", borderRadius: 8, color: "#fff",
+                          fontSize: 13, outline: "none"
+                        }}
+                      >
+                        {Object.keys(TIER_WEIGHT).map(t => (
+                          <option key={t} value={t}>Tier {t} ({TIER_WEIGHT[t]} pts)</option>
+                        ))}
+                      </select>
+                      <button onClick={handleAddPlayer} style={{
+                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                        border: "none", borderRadius: 8, padding: "0 20px",
+                        color: "#fff", fontWeight: 600, cursor: "pointer",
+                      }}>Tambah</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  marginBottom: 14,
+                }}>
+                  <span style={{ fontSize: 13, color: "#9ca3af" }}>
+                    {checkedIn.size} dari {players.length} hadir
+                  </span>
+                  <div style={{
+                    height: 6, flex: 1, margin: "0 12px",
+                    background: "#1e1e2e", borderRadius: 99, overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%", borderRadius: 99,
+                      width: `${(checkedIn.size / players.length) * 100}%`,
+                      background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
+                      transition: "width 0.3s",
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 12, color: "#6366f1", fontWeight: 600 }}>
+                    {Math.round((checkedIn.size / players.length) * 100)}%
+                  </span>
+                </div>
+
+                {Object.entries(TIER_WEIGHT).map(([tier]) => {
+                  const tierPlayers = players.filter(p => p.tier === tier);
+                  if (!tierPlayers.length) return null;
+                  const c = TIER_COLORS[tier];
+                  return (
+                    <div key={tier} style={{ marginBottom: 14 }}>
+                      <div style={{
+                        fontSize: 11, fontWeight: 600, color: c.text,
+                        background: c.bg, display: "inline-block",
+                        padding: "2px 10px", borderRadius: 6, marginBottom: 8,
+                        border: `1px solid ${c.border}`,
+                      }}>
+                        Tier {tier} · {TIER_WEIGHT[tier]} pts
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {tierPlayers.map(p => {
+                          const isIn = checkedIn.has(p.id);
+                          const isPlaying = activePlayers.has(p.id);
+                          return (
+                            <button key={p.id} onClick={() => !isPlaying && toggleCheckIn(p.id)}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 12,
+                                background: isIn ? "#13131f" : "#0a0a14",
+                                border: `1px solid ${isIn ? "#6366f140" : "#ffffff0a"}`,
+                                borderRadius: 10, padding: "10px 14px", cursor: isPlaying ? "default" : "pointer",
+                                textAlign: "left", transition: "all 0.15s",
+                                opacity: isPlaying ? 0.7 : 1,
+                              }}>
+                              <div style={{
+                                width: 34, height: 34, borderRadius: 9,
+                                background: isIn ? "linear-gradient(135deg, #6366f130, #8b5cf630)" : "#ffffff08",
+                                border: `1.5px solid ${isIn ? "#6366f160" : "#ffffff15"}`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 13, fontWeight: 700, color: isIn ? "#a78bfa" : "#4b5563",
+                                flexShrink: 0,
+                              }}>
+                                {p.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: isIn ? "#e8e8f0" : "#6b7280" }}>
+                                  {p.name}
+                                </div>
+                                {isPlaying && (
+                                  <div style={{ fontSize: 11, color: "#4ade80", marginTop: 1 }}>● Sedang bermain</div>
+                                )}
+                              </div>
+                              {!isPlaying && (
+                                <div onClick={(e) => handleDeletePlayer(p.id, p.name, e)} style={{
+                                  padding: "4px 8px", background: "#7f1d1d30", color: "#fca5a5", borderRadius: 6,
+                                  fontSize: 11, border: "1px solid #991b1b50", cursor: "pointer", display: "flex", alignItems: "center"
+                                }}>Hapus</div>
+                              )}
+                              <div style={{
+                                width: 22, height: 22, borderRadius: 6,
+                                background: isIn ? "#4ade8020" : "#ffffff08",
+                                border: `1.5px solid ${isIn ? "#4ade80" : "#ffffff20"}`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 13, color: "#4ade80",
+                              }}>
+                                {isIn ? "✓" : ""}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px dashed #ffffff20" }}>
+                  <button onClick={handleResetAllData} style={{
+                    width: "100%", background: "#7f1d1d30", border: "1px solid #991b1b50",
+                    color: "#fca5a5", padding: "14px", borderRadius: 12, fontSize: 13,
+                    fontWeight: 700, display: "flex", justifyContent: "center", alignItems: "center",
+                    gap: 8, cursor: "pointer"
+                  }}>
+                    ⚠️ Hapus Semua Data (Reset)
+                  </button>
+                  <div style={{ textAlign: "center", fontSize: 11, color: "#6b7280", marginTop: 8 }}>
+                    Gunakan jika Anda ingin memulai sesi/turnamen baru dari awal di hari lain.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === FORMULA TAB === */}
+            {tab === "formula" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{
+                  background: "linear-gradient(135deg, #6366f120, #8b5cf620)",
+                  border: "1px solid #6366f140", borderRadius: 12, padding: 16,
+                  textAlign: "center"
+                }}>
+                  <div style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 4 }}>RUMUS UTAMA KLASEMEN</div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
+                    P = TS + S + R + M
+                  </div>
+                </div>
+
+                <div style={{ background: "#13131f", borderRadius: 12, padding: "16px 16px 4px", border: "1px solid #ffffff14" }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ background: "#374151", color: "#f3f4f6", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>TS</span>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: "#e8e8f0" }}>Total Skor (Poin Murni)</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      Akumulasi angka murni dari seluruh Game yang dicetak pemain dalam satu Match.
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ background: "#22c55e30", color: "#4ade80", border: "1px solid #22c55e50", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>S</span>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: "#e8e8f0" }}>Status Match</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      <ul style={{ margin: "4px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 4 }}>
+                        <li><strong style={{ color: "#d1d5db" }}>Menang:</strong> +3 Poin</li>
+                        <li><strong style={{ color: "#d1d5db" }}>Kalah Ketat:</strong> +1 Poin (Kalah rubber game atau skor kalah mepet 18, 19, 20)</li>
+                        <li><strong style={{ color: "#d1d5db" }}>Kalah Telak:</strong> 0 Poin</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ background: "#f59e0b30", color: "#fbbf24", border: "1px solid #f59e0b50", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>R</span>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: "#e8e8f0" }}>Subsidi Tier (Underdog)</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      Dihitung dari selisih Bobot Tier Tim. Hanya diberikan kepada tim dengan bobot lebih kecil:
+                      <ul style={{ margin: "4px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 4 }}>
+                        <li><strong style={{ color: "#d1d5db" }}>Selisih ≥ 200:</strong> Menang +4, Kalah +2</li>
+                        <li><strong style={{ color: "#d1d5db" }}>Selisih 50 - 150:</strong> Menang +2, Kalah +1</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ background: "#3b82f630", color: "#60a5fa", border: "1px solid #3b82f650", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>M</span>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: "#e8e8f0" }}>Kompensasi Absen</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      +10 Poin per "Match yang terlewat" (dibandingkan dengan pemain yang main paling banyak) agar pemain yang jarang main tidak tertinggal jauh.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: "#13131f", borderRadius: 12, padding: 16, border: "1px solid #ffffff14" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 8, textTransform: "uppercase" }}>Tie-Breaker (Jika Poin Sama)</div>
+                  <ol style={{ fontSize: 12, color: "#9ca3af", margin: 0, paddingLeft: 16, lineHeight: 1.6 }}>
+                    <li><strong style={{ color: "#d1d5db" }}>DIFF:</strong> Selisih total skor memasukkan dikurangi kemasukan.</li>
+                    <li><strong style={{ color: "#d1d5db" }}>W:</strong> Jumlah kemenangan (Win) terbanyak.</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {scoreModal && (
+            <ScoreModal
+              match={scoreModal} players={players}
+              onClose={() => setScoreModal(null)}
+              onSubmit={(games) => handleSubmitScore(scoreModal.id, games)}
+            />
+          )}
+
+          {manualModal && (
+            <ManualModal
+              players={availablePlayers}
+              courts={courts.filter(c => !occupiedCourts.has(c))}
+              selected={manualSelected} setSelected={setManualSelected}
+              court={manualCourt} setCourt={setManualCourt}
+              onClose={() => { setManualModal(false); setManualSelected([]); }}
+              onSubmit={handleManualMatch}
+            />
+          )}
+
+          {notify && (
+            <div style={{
+              position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+              background: notify.type === "error" ? "#7f1d1d" : "#14532d",
+              border: `1px solid ${notify.type === "error" ? "#991b1b" : "#166534"}`,
+              color: notify.type === "error" ? "#fca5a5" : "#86efac",
+              padding: "10px 20px", borderRadius: 10, fontSize: 13, fontWeight: 500,
+              zIndex: 1000, whiteSpace: "nowrap", boxShadow: "0 4px 24px #00000060",
+            }}>{notify.msg}</div>
+          )}
+
+          {confirmDialog && (
+            <div style={{
+              position: "fixed", inset: 0, background: "#000000cc",
+              zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 20
+            }} onClick={() => setConfirmDialog(null)}>
+              <div style={{
+                background: "#13131f", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320,
+                border: "1px solid #ffffff14", textAlign: "center",
+                boxShadow: "0 10px 40px #00000080"
+              }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: confirmDialog.isDanger ? "#fca5a5" : "#e8e8f0" }}>
+                  {confirmDialog.title}
+                </div>
+                <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 24, lineHeight: 1.5 }}>
+                  {confirmDialog.message}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setConfirmDialog(null)} style={{
+                    flex: 1, padding: "12px", borderRadius: 10, background: "#ffffff10",
+                    border: "none", color: "#e8e8f0", fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif"
+                  }}>Batal</button>
+                  <button onClick={confirmDialog.onConfirm} style={{
+                    flex: 1, padding: "12px", borderRadius: 10,
+                    background: confirmDialog.isDanger ? "#7f1d1d" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none", color: "#fff", fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif"
+                  }}>Yakin</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function MatchCard({ match, players, onScore }) {
+      const getPlayer = id => players.find(p => p.id === id);
+      const t1w = match.team1.reduce((s, id) => s + TIER_WEIGHT[getPlayer(id)?.tier || "E"], 0);
+      const t2w = match.team2.reduce((s, id) => s + TIER_WEIGHT[getPlayer(id)?.tier || "E"], 0);
+      const diff = Math.abs(t1w - t2w);
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+            {[match.team1, match.team2].map((team, ti) => (
+              <div key={ti} style={{
+                flex: 1, background: "#0d0d1a", borderRadius: 10,
+                padding: "10px 12px", border: "1px solid #ffffff0a",
+              }}>
+                <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 600, marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                  Tim {ti + 1}
+                </div>
+                {team.map(id => {
+                  const p = getPlayer(id);
+                  return p ? (
+                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <TierBadge tier={p.tier} small />
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>{p.name.split(" ")[0]}</span>
+                    </div>
+                  ) : null;
+                })}
+                <div style={{ fontSize: 10, color: "#4b5563", marginTop: 6 }}>Bobot: {ti === 0 ? t1w : t2w}</div>
+              </div>
+            ))}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28 }}>
+              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>VS</span>
+            </div>
+          </div>
+
+          {diff >= 50 && (
+            <div style={{
+              marginTop: 8, fontSize: 11, color: "#fbbf24",
+              background: "#fbbf2415", borderRadius: 6, padding: "4px 10px", textAlign: "center",
+            }}>
+              Selisih bobot {diff} · Subsidi tier aktif
+            </div>
+          )}
+
+          <button onClick={onScore} style={{
+            width: "100%", marginTop: 10, padding: "10px 0",
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            border: "none", borderRadius: 8, cursor: "pointer",
+            color: "#fff", fontWeight: 600, fontSize: 13,
+          }}>
+            Input Skor
+          </button>
+        </div>
+      );
+    }
+
+    function DoneMatchCard({ match, players, onEdit }) {
+      const getPlayer = id => players.find(p => p.id === id);
+      const t1Total = match.games.reduce((s, g) => s + g.t1, 0);
+      const t2Total = match.games.reduce((s, g) => s + g.t2, 0);
+      const t1Win = match.games.filter(g => g.t1 > g.t2).length > match.games.filter(g => g.t2 > g.t1).length;
+
+      return (
+        <div style={{
+          background: "#0d0d1a", borderRadius: 12, padding: 12,
+          border: "1px solid #ffffff0a", marginBottom: 8,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, alignItems: "center", borderBottom: "1px solid #ffffff0a", paddingBottom: 8 }}>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              Lap. {match.courtId} · {match.games.map(g => `${g.t1}-${g.t2}`).join(", ")}
+            </div>
+            <button onClick={onEdit} style={{
+              background: "#374151", border: "none", color: "#e8e8f0", 
+              fontSize: 10, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+              fontWeight: 600
+            }}>✏️ Edit Skor</button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              {match.team1.map(id => {
+                const p = getPlayer(id);
+                return p ? <div key={id} style={{ fontSize: 12, color: t1Win ? "#e8e8f0" : "#6b7280", marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
+              })}
+            </div>
+            <div style={{ textAlign: "center", minWidth: 70 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 16, fontWeight: 600 }}>
+                <span style={{ color: t1Win ? "#4ade80" : "#f87171" }}>{t1Total}</span>
+                <span style={{ color: "#374151", margin: "0 4px" }}>:</span>
+                <span style={{ color: !t1Win ? "#4ade80" : "#f87171" }}>{t2Total}</span>
+              </div>
+            </div>
+            <div style={{ flex: 1, textAlign: "right" }}>
+              {match.team2.map(id => {
+                const p = getPlayer(id);
+                return p ? <div key={id} style={{ fontSize: 12, color: !t1Win ? "#e8e8f0" : "#6b7280", marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ScoreModal({ match, players, onClose, onSubmit }) {
+      const [games, setGames] = useState(match.games.length > 0 ? match.games : [{ t1: 0, t2: 0 }]);
+      const getPlayer = id => players.find(p => p.id === id);
+
+      const updateGame = (idx, team, val) => {
+        const n = [...games];
+        const num = Math.max(0, Math.min(30, parseInt(val) || 0));
+        n[idx] = { ...n[idx], [team]: num };
+        setGames(n);
+      };
+      const addGame = () => games.length < 3 && setGames(prev => [...prev, { t1: 0, t2: 0 }]);
+      const removeGame = idx => games.length > 1 && setGames(prev => prev.filter((_, i) => i !== idx));
+
+      return (
+        <div style={{
+          position: "fixed", inset: 0, background: "#000000cc",
+          zIndex: 200, display: "flex", alignItems: "flex-end",
+        }} onClick={onClose}>
+          <div style={{
+            background: "#13131f", borderRadius: "18px 18px 0 0",
+            padding: "20px 20px 36px", width: "100%",
+            border: "1px solid #ffffff14", maxHeight: "90vh", overflowY: "auto",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{match.status === "done" ? "Edit Skor" : "Input Skor"} · Lapangan {match.courtId}</span>
+              <button onClick={onClose} style={{
+                background: "#ffffff12", border: "none", color: "#9ca3af",
+                borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
+              }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", marginBottom: 16, gap: 8 }}>
+              {[match.team1, match.team2].map((team, ti) => (
+                <div key={ti} style={{
+                  flex: 1, background: "#0d0d1a", borderRadius: 8,
+                  padding: "8px 10px", fontSize: 12, textAlign: "center",
+                  border: "1px solid #ffffff0a",
+                }}>
+                  <div style={{ color: "#6b7280", marginBottom: 4, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tim {ti + 1}</div>
+                  {team.map(id => {
+                    const p = getPlayer(id);
+                    return p ? <div key={id} style={{ fontWeight: 500, marginBottom: 1 }}>{p.name.split(" ")[0]}</div> : null;
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {games.map((g, idx) => (
+              <div key={idx} style={{
+                background: "#0d0d1a", borderRadius: 10, padding: 12,
+                marginBottom: 8, border: "1px solid #ffffff0a",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Set {idx + 1}</span>
+                  {games.length > 1 && (
+                    <button onClick={() => removeGame(idx)} style={{
+                      background: "#7f1d1d30", border: "1px solid #991b1b50",
+                      color: "#fca5a5", borderRadius: 6, padding: "2px 8px",
+                      fontSize: 11, cursor: "pointer",
+                    }}>Hapus</button>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="number" min={0} max={30} value={g.t1}
+                    onChange={e => updateGame(idx, "t1", e.target.value)}
+                    style={{
+                      flex: 1, background: "#13131f", border: "1px solid #6366f140",
+                      borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
+                      textAlign: "center", padding: "10px 0",
+                      fontFamily: "'DM Mono', monospace",
+                      WebkitAppearance: "none", MozAppearance: "textfield",
+                    }}
+                  />
+                  <span style={{ color: "#4b5563", fontSize: 18, fontWeight: 600 }}>:</span>
+                  <input
+                    type="number" min={0} max={30} value={g.t2}
+                    onChange={e => updateGame(idx, "t2", e.target.value)}
+                    style={{
+                      flex: 1, background: "#13131f", border: "1px solid #6366f140",
+                      borderRadius: 8, color: "#e8e8f0", fontSize: 22, fontWeight: 700,
+                      textAlign: "center", padding: "10px 0",
+                      fontFamily: "'DM Mono', monospace",
+                      WebkitAppearance: "none", MozAppearance: "textfield",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {games.length < 3 && (
+              <button onClick={addGame} style={{
+                width: "100%", padding: "10px 0",
+                background: "#13131f", border: "1px dashed #ffffff20",
+                borderRadius: 10, cursor: "pointer",
+                color: "#6b7280", fontSize: 13, marginBottom: 12,
+              }}>+ Tambah Set</button>
+            )}
+
+            <button onClick={() => onSubmit(games)} style={{
+              width: "100%", padding: "14px 0",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              border: "none", borderRadius: 10, cursor: "pointer",
+              color: "#fff", fontWeight: 700, fontSize: 15,
+            }}>Simpan Hasil</button>
+          </div>
+        </div>
+      );
+    }
+
+    function ManualModal({ players, courts, selected, setSelected, court, setCourt, onClose, onSubmit }) {
+      const toggle = (id) => {
+        setSelected(prev =>
+          prev.includes(id) ? prev.filter(x => x !== id) :
+            prev.length < 4 ? [...prev, id] : prev
+        );
+      };
+      const teamLabel = (id) => {
+        const idx = selected.indexOf(id);
+        if (idx === 0 || idx === 1) return "T1";
+        if (idx === 2 || idx === 3) return "T2";
+        return null;
+      };
+
+      return (
+        <div style={{
+          position: "fixed", inset: 0, background: "#000000cc",
+          zIndex: 200, display: "flex", alignItems: "flex-end",
+        }} onClick={onClose}>
+          <div style={{
+            background: "#13131f", borderRadius: "18px 18px 0 0",
+            padding: "20px 20px 36px", width: "100%",
+            border: "1px solid #ffffff14", maxHeight: "85vh", overflowY: "auto",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Manual Match</span>
+              <button onClick={onClose} style={{
+                background: "#ffffff12", border: "none", color: "#9ca3af",
+                borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16,
+              }}>×</button>
+            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 14 }}>
+              Pilih 4 pemain (2 pertama = Tim 1, 2 berikutnya = Tim 2)
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Lapangan</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {courts.map(c => (
+                  <button key={c} onClick={() => setCourt(c)} style={{
+                    flex: 1, padding: "8px 0",
+                    background: court === c ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#0d0d1a",
+                    border: "1px solid #ffffff14", borderRadius: 8, cursor: "pointer",
+                    color: court === c ? "#fff" : "#9ca3af", fontSize: 13, fontWeight: 600,
+                  }}>Lap. {c}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+              {players.map(p => {
+                const sel = selected.includes(p.id);
+                const label = teamLabel(p.id);
+                return (
+                  <button key={p.id} onClick={() => toggle(p.id)} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: sel ? "#1a1a2e" : "#0d0d1a",
+                    border: `1px solid ${sel ? "#6366f150" : "#ffffff0a"}`,
+                    borderRadius: 10, padding: "10px 12px", cursor: "pointer",
+                    textAlign: "left",
+                  }}>
+                    {label && (
+                      <span style={{
+                        width: 28, height: 22, borderRadius: 5, fontSize: 10, fontWeight: 700,
+                        background: label === "T1" ? "#6366f130" : "#8b5cf630",
+                        color: label === "T1" ? "#818cf8" : "#a78bfa",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0,
+                      }}>{label}</span>
+                    )}
+                    {!label && <div style={{ width: 28, height: 22 }} />}
+                    <TierBadge tier={p.tier} small />
+                    <span style={{ fontSize: 13, fontWeight: 500, color: sel ? "#e8e8f0" : "#9ca3af" }}>{p.name}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: "#4b5563" }}>{TIER_WEIGHT[p.tier]}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={onSubmit}
+              disabled={selected.length !== 4}
+              style={{
+                width: "100%", padding: "14px 0",
+                background: selected.length === 4
+                  ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#1e1e2e",
+                border: "none", borderRadius: 10, cursor: selected.length === 4 ? "pointer" : "default",
+                color: selected.length === 4 ? "#fff" : "#374151",
+                fontWeight: 700, fontSize: 15, transition: "all 0.15s",
+              }}
+            >
+              {selected.length === 4 ? "Mulai Match" : `Pilih ${4 - selected.length} pemain lagi`}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Initialize the app
+    const root = createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
