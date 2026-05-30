@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -473,7 +474,6 @@
         setIsProcessing(null);
       };
 
-      // Fungsi Helper untuk merangkai Teks Narasi & Link
       const generateShareText = (link) => {
         let textMsg = `🎾 *KLASEMEN COURT-RANK* 🎾\n\n`;
         if (standings.length > 0) {
@@ -574,25 +574,14 @@
         }
       };
 
-      const fallbackCopy = (text) => {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            showNotify("Teks & Link berhasil disalin! Bagikan ke teman.");
-        } catch (err) {
-            window.prompt("Fitur salin otomatis diblokir. Salin teks berikut secara manual:", text);
-        }
-        textArea.remove();
-      };
-
+      // ==========================================
+      // FITUR SMART MATCH (SUDAH DIPERBAIKI)
+      // ==========================================
       const handleSmartMatch = () => {
-        const avail = availablePlayers;
+        // 1. Ambil pemain yang tersedia (available) lalu ACAK URUTANNYA dulu
+        let avail = [...availablePlayers];
+        avail.sort(() => Math.random() - 0.5);
+
         if (avail.length < 4) {
           showNotify("Butuh minimal 4 pemain tersedia!", "error"); return;
         }
@@ -601,12 +590,26 @@
           showNotify("Semua lapangan sedang terpakai!", "error"); return;
         }
 
-        let best = null, bestDiff = Infinity;
-        for (let i = 0; i < avail.length - 3; i++)
-          for (let j = i + 1; j < avail.length - 2; j++)
-            for (let k = j + 1; k < avail.length - 1; k++)
-              for (let l = k + 1; l < avail.length; l++) {
-                const combo = [avail[i], avail[j], avail[k], avail[l]];
+        // 2. PRIORITASKAN YANG PALING JARANG MAIN
+        // Supaya yang belum main bisa dapat giliran duluan
+        avail.sort((a, b) => {
+          const mainA = standings.find(s => s.id === a.id)?.matchesPlayed || 0;
+          const mainB = standings.find(s => s.id === b.id)?.matchesPlayed || 0;
+          return mainA - mainB; 
+        });
+
+        // 3. Batasi hanya mencari kombinasi dari N pemain teratas (misal 6 orang yg paling nganggur)
+        // Jika tidak dibatasi, bisa-bisa algoritma malah memilih orang yang sudah main terus hanya karena bobot tiernya pas.
+        const searchPool = avail.slice(0, Math.min(avail.length, 6)); 
+
+        let bestMatches = [];
+        let bestDiff = Infinity;
+
+        for (let i = 0; i < searchPool.length - 3; i++)
+          for (let j = i + 1; j < searchPool.length - 2; j++)
+            for (let k = j + 1; k < searchPool.length - 1; k++)
+              for (let l = k + 1; l < searchPool.length; l++) {
+                const combo = [searchPool[i], searchPool[j], searchPool[k], searchPool[l]];
                 const pairs = [
                   [[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]
                 ];
@@ -614,23 +617,32 @@
                   const w1 = a.reduce((s, x) => s + TIER_WEIGHT[combo[x].tier], 0);
                   const w2 = b.reduce((s, x) => s + TIER_WEIGHT[combo[x].tier], 0);
                   const d = Math.abs(w1 - w2);
-                  if (d < bestDiff) {
-                    bestDiff = d;
-                    best = {
+                  
+                  const currentMatchData = {
                       team1: a.map(x => combo[x].id),
                       team2: b.map(x => combo[x].id),
-                    };
+                  };
+
+                  if (d < bestDiff) {
+                    bestDiff = d;
+                    // Reset daftar terbaik karena kita nemu selisih yang lebih kecil
+                    bestMatches = [currentMatchData]; 
+                  } else if (d === bestDiff) {
+                    // Tambahkan ke opsi terbaik jika selisihnya sama
+                    bestMatches.push(currentMatchData);
                   }
                 });
               }
 
-        if (best) {
+        if (bestMatches.length > 0) {
+          // 4. ACAK PILIHAN TIM DARI SEMUA KEMUNGKINAN TERBAIK
+          const chosen = bestMatches[Math.floor(Math.random() * bestMatches.length)];
           const newMatch = {
             id: `m${Date.now()}`, courtId: freeCourt, status: "ongoing",
-            team1: best.team1, team2: best.team2, games: [{ t1: 0, t2: 0 }],
+            team1: chosen.team1, team2: chosen.team2, games: [{ t1: 0, t2: 0 }],
           };
           setMatches(prev => [...prev, newMatch]);
-          showNotify(`Match dibuat di Match ${freeCourt}!`);
+          showNotify(`Match dibuat di Lapangan ${freeCourt}!`);
         }
       };
 
@@ -1745,3 +1757,6 @@
   </script>
 </body>
 </html>
+
+
+```
