@@ -291,6 +291,7 @@
       const [isLoaded, setIsLoaded] = useState(false);
       const [githubToken, setGithubToken] = useState("");
       const [githubGistId, setGithubGistId] = useState(""); // per workspace
+      const [readOnly, setReadOnly] = useState(false);
       const [gistStatus, setGistStatus] = useState(null); // null | "saving" | "saved" | "error"
       const [showGistModal, setShowGistModal] = useState(false);
       const [showHandoverModal, setShowHandoverModal] = useState(false);
@@ -374,6 +375,7 @@
           if (data.currentSessionId) setCurrentSessionId(data.currentSessionId);
           if (data.githubGistId) setGithubGistId(data.githubGistId);
           else setGithubGistId("");
+          setReadOnly(!!data.readOnly);
         } catch(e) { console.error(e); }
       };
 
@@ -454,6 +456,7 @@
                   sessions: data.sessions || [{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() }],
                   currentSessionId: data.currentSessionId || "s1",
                   githubGistId: data.gistId || "",
+                  readOnly: !!data.viewOnly,
                 };
                 localStorage.setItem(`courtRank_ws_${newWsId}`, JSON.stringify(wsData));
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -474,7 +477,7 @@
         if (!isLoaded || !workspaceId) return;
         const wsData = {
           players, matches, checkedIn: Array.from(checkedIn), checkedInBySession,
-          numCourts, sessions, currentSessionId, githubGistId
+          numCourts, sessions, currentSessionId, githubGistId, readOnly
         };
         localStorage.setItem(`courtRank_ws_${workspaceId}`, JSON.stringify(wsData));
         // update updatedAt in workspaces list
@@ -483,7 +486,7 @@
           localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
           return updated;
         });
-      }, [players, matches, checkedIn, checkedInBySession, numCourts, sessions, currentSessionId, githubGistId, isLoaded, workspaceId]);
+      }, [players, matches, checkedIn, checkedInBySession, numCourts, sessions, currentSessionId, githubGistId, readOnly, isLoaded, workspaceId]);
 
       // Save github token globally (not per workspace)
       useEffect(() => {
@@ -715,7 +718,7 @@
       // ---- GitHub Gist backup/restore ----
       const buildFullPayload = () => ({
         players, matches, checkedIn: Array.from(checkedIn), checkedInBySession,
-        numCourts, sessions, currentSessionId, githubGistId,
+        numCourts, sessions, currentSessionId, githubGistId, readOnly,
         wsName: workspaces.find(w => w.id === workspaceId)?.name || "Arena",
         wsEmoji: workspaces.find(w => w.id === workspaceId)?.emoji || "🏸",
       });
@@ -1183,7 +1186,7 @@ Hai! Ini data lanjutan sesi kita.
             const freshSession = { id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() };
             const freshData = {
               players: [], matches: [], checkedIn: [], checkedInBySession: { s1: [] }, numCourts: 3,
-              sessions: [freshSession], currentSessionId: "s1", githubGistId: "",
+              sessions: [freshSession], currentSessionId: "s1", githubGistId: "", readOnly: false,
             };
             localStorage.setItem(`courtRank_ws_${wsId}`, JSON.stringify(freshData));
             const updated = workspaces.map(w => w.id === wsId ? { ...w, updatedAt: Date.now() } : w);
@@ -1191,7 +1194,7 @@ Hai! Ini data lanjutan sesi kita.
             localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
             if (workspaceId === wsId) {
               setPlayers([]); setMatches([]); setCheckedInBySession({ s1: [] }); setNumCourts(3);
-              setSessions([freshSession]); setCurrentSessionId("s1"); setGithubGistId("");
+              setSessions([freshSession]); setCurrentSessionId("s1"); setGithubGistId(""); setReadOnly(false);
             }
             showNotify(`${ws?.name || "Arena"} berhasil di-reset.`, "success");
             setConfirmDialog(null);
@@ -1206,6 +1209,82 @@ Hai! Ini data lanjutan sesi kita.
         setWorkspaces(updated);
         localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
         showNotify("Nama Arena berhasil diganti!", "success");
+      };
+
+      const handleDownloadWorkspaceBackup = (ws) => {
+        const raw = localStorage.getItem(`courtRank_ws_${ws.id}`);
+        if (!raw) { showNotify("Data Arena tidak ditemukan", "error"); return; }
+        try {
+          const backup = {
+            app: "CourtRank",
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            arena: repairWorkspace(ws),
+            data: JSON.parse(raw),
+          };
+          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          const safeName = (ws.name || "Arena").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Arena";
+          a.href = url;
+          a.download = `CourtRank-Backup-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showNotify("Backup Arena berhasil disimpan!", "success");
+        } catch (e) {
+          console.error(e);
+          showNotify("Gagal membuat file backup", "error");
+        }
+      };
+
+      const handleRestoreWorkspaceBackup = (ws) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".json,application/json";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const parsed = JSON.parse(reader.result);
+              const data = parsed.data || parsed;
+              if (!data.players || !data.matches || !data.sessions) throw new Error("Format backup tidak valid");
+              setConfirmDialog({
+                title: "Pulihkan Backup",
+                message: `Pulihkan file backup ke ${ws.name}? Data Arena saat ini akan diganti oleh isi backup.`,
+                isDanger: true,
+                onConfirm: () => {
+                  const cleaned = {
+                    players: (data.players || []).map(p => ({ ...p, name: repairStoredText(p.name) || p.name })),
+                    matches: data.matches || [],
+                    checkedIn: data.checkedIn || [],
+                    checkedInBySession: buildCheckedInBySession(data),
+                    numCourts: data.numCourts || 3,
+                    sessions: data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now() }],
+                    currentSessionId: data.currentSessionId || data.sessions?.[0]?.id || "s1",
+                    githubGistId: "",
+                    readOnly: false,
+                  };
+                  localStorage.setItem(`courtRank_ws_${ws.id}`, JSON.stringify(cleaned));
+                  const updated = workspaces.map(w => w.id === ws.id ? { ...w, updatedAt: Date.now() } : w);
+                  setWorkspaces(updated);
+                  localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
+                  if (workspaceId === ws.id) loadWorkspaceData(ws.id, JSON.stringify(cleaned));
+                  showNotify("Backup berhasil dipulihkan!", "success");
+                  setConfirmDialog(null);
+                }
+              });
+            } catch (e) {
+              console.error(e);
+              showNotify("File backup tidak bisa dibaca", "error");
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
       };
 
       const handleDeleteSession = (sessionId) => {
@@ -1240,7 +1319,7 @@ Hai! Ini data lanjutan sesi kita.
         });
       };
 
-      const handleWorkspaceHandover = (ws) => {
+      const handleShareWorkspace = (ws, shareType = "operator") => {
         if (!window.LZString) { showNotify("Sedang menyiapkan data...", "error"); return; }
         const raw = localStorage.getItem(`courtRank_ws_${ws.id}`);
         if (!raw) { showNotify("Data Arena tidak ditemukan", "error"); return; }
@@ -1250,6 +1329,7 @@ Hai! Ini data lanjutan sesi kita.
           const safeMatches = data.matches || [];
           const safeSessions = data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now() }];
           const wsFixed = repairWorkspace(ws);
+          const viewOnly = shareType === "viewer";
           const minified = {
             p: safePlayers.map(p => [p.id, p.name, p.tier]),
             m: safeMatches.map(m => [m.id, m.courtId, m.status === 'ongoing' ? 0 : 1, m.team1, m.team2, (m.games || []).map(g => [g.t1, g.t2]), m.tierSnapshot || {}, m.sessionId || "s1"]),
@@ -1259,26 +1339,29 @@ Hai! Ini data lanjutan sesi kita.
             currentSessionId: data.currentSessionId || safeSessions[0]?.id || "s1",
             wsName: wsFixed.name,
             wsEmoji: wsFixed.emoji,
-            gistId: data.githubGistId || "",
+            viewOnly,
           };
           const compressed = window.LZString.compressToEncodedURIComponent(JSON.stringify(minified));
           const baseUrl = window.location.href.split('?')[0].split('#')[0];
           const link = `${baseUrl}?d=${compressed}`;
           const doneMatches = safeMatches.filter(m => m.status === "done").length;
-          const msg = `🎾 *HANDOVER ARENA COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk lanjut input skor dan lihat klasemen harian & All Time:\n🔗 ${link}`;
+          const title = viewOnly ? `Data Lengkap ${wsFixed.name}` : `Handover ${wsFixed.name}`;
+          const msg = viewOnly
+            ? `📊 *DATA LENGKAP COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nLihat data Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nLink untuk melihat klasemen, statistik, pemain, sesi, dan skor match:\n🔗 ${link}`
+            : `🎾 *HANDOVER OPERATOR COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap untuk lanjut input:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk lanjut input skor dan kelola Arena:\n🔗 ${link}`;
           if (navigator.share) {
-            navigator.share({ title: `Handover ${wsFixed.name}`, text: msg }).catch(err => {
+            navigator.share({ title, text: msg }).catch(err => {
               if (err.name !== "AbortError") fallbackCopy(msg);
             });
           } else if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(msg).then(() => showNotify("Link handover Arena disalin!", "success")).catch(() => fallbackCopy(msg));
+            navigator.clipboard.writeText(msg).then(() => showNotify(viewOnly ? "Link lihat data disalin!" : "Link handover disalin!", "success")).catch(() => fallbackCopy(msg));
           } else {
             fallbackCopy(msg);
-            showNotify("Link handover Arena disalin!", "success");
+            showNotify(viewOnly ? "Link lihat data disalin!" : "Link handover disalin!", "success");
           }
         } catch (e) {
           console.error(e);
-          showNotify("Gagal membuat handover Arena", "error");
+          showNotify("Gagal membuat link Bagikan", "error");
         }
       };
 
@@ -1290,6 +1373,9 @@ Hai! Ini data lanjutan sesi kita.
           onRename={handleRenameWorkspace}
           onReset={handleResetWorkspace}
           onDelete={handleDeleteWorkspace}
+          onShare={handleShareWorkspace}
+          onBackup={handleDownloadWorkspaceBackup}
+          onRestore={handleRestoreWorkspaceBackup}
           confirmDialog={confirmDialog}
           setConfirmDialog={setConfirmDialog}
         />;
@@ -1355,7 +1441,6 @@ Hai! Ini data lanjutan sesi kita.
           wsName={wsName}
           wsEmoji={wsEmoji}
           onSelectSession={(sId) => { setCurrentSessionId(sId); setScreen("app"); }}
-          onHandover={() => handleWorkspaceHandover(workspaces.find(w => w.id === workspaceId))}
           onDeleteSession={handleDeleteSession}
           onNewSession={() => {
             const sessionNum = sessions.length + 1;
@@ -1793,12 +1878,6 @@ Hai! Ini data lanjutan sesi kita.
                   </div>
                   <div style={{ fontSize: 12, color: "#70839C", marginBottom: 12 }}>Sesi ke-{sessions.findIndex(s => s.id === currentSessionId) + 1} dari {sessions.length} total sesi</div>
                   <button onClick={() => setScreen("session")} style={{ width: "100%", padding: "11px", background: "#10171108", border: "2px solid #1D3557", borderRadius: 10, color: "#101711", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>📋 Lihat All Time</button>
-                </div>
-
-                {/* Backup Data */}
-                <div style={{ background: "#FFFFFF", borderRadius: 22, padding: 16, border: "2px solid #1D3557", boxShadow: "5px 5px 0 #1D3557" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#70839C", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>☁️ Backup Data</div>
-                  <button onClick={() => setShowGistModal(true)} style={{ width: "100%", padding: "11px", background: "#FFFFFF", border: "2px solid #E63946", color: "#C1121F", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{gistStatus === "saving" ? "⏳" : "☁️"} Backup Gist</button>
                 </div>
 
                 {/* Reset Danger Zone */}
@@ -2928,7 +3007,6 @@ Hai! Ini data lanjutan sesi kita.
                 <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 24, color: "#C1121F", textTransform: "uppercase" }}>{wsName}</div>
                 <div style={{ fontSize: 11, color: "#5E4648" }}>{sessions.length} sesi · {players.length} pemain · {matches.filter(m => m.status === "done").length} match</div>
               </div>
-              <button onClick={onHandover} title="Handover arena" style={{ background: "#FFB70320", border: "2px solid #FFB703", color: "#B07D00", borderRadius: 16, padding: "8px 12px", fontSize: 11, cursor: "pointer", fontWeight: 800, whiteSpace: "nowrap" }}>📤 Handover</button>
             </div>
             <div style={{ display: "flex", gap: 0 }}>
               {[["sessions","📅 Sesi"],["alltime","🏆 Klasemen"],["stats","📊 Statistik"],["players","👥 Pemain"],["rules","📖 Aturan"]].map(([k,l]) => (
@@ -3265,12 +3343,13 @@ Hai! Ini data lanjutan sesi kita.
     }
 
     // ===== WORKSPACE SCREEN =====
-    function WorkspaceScreen({ workspaces, onOpen, onCreate, onRename, onReset, onDelete, confirmDialog, setConfirmDialog }) {
+    function WorkspaceScreen({ workspaces, onOpen, onCreate, onRename, onReset, onDelete, onShare, onBackup, onRestore, confirmDialog, setConfirmDialog }) {
       const [creating, setCreating] = React.useState(false);
       const [newName, setNewName] = React.useState("");
       const [renamingId, setRenamingId] = React.useState(null);
       const [renameName, setRenameName] = React.useState("");
       const [newEmoji, setNewEmoji] = React.useState("🏸");
+      const [shareArena, setShareArena] = React.useState(null);
       const emojis = ["🏸","🎾","🏓","⚽","🏀","🏐","🥏","🎱"];
       const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : "-";
       return (
@@ -3306,10 +3385,15 @@ Hai! Ini data lanjutan sesi kita.
                   <button onClick={() => onOpen(ws)} style={{ background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 26px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "5px 5px 0 #1D3557", minWidth: 96 }}>Buka</button>
                 </div>
                 <div style={{ height: 1, background: "#10171110", marginBottom: 12 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 6px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>
-                  <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 6px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>
-                  <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E63946", color: "#C1121F", borderRadius: 16, padding: "10px 6px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <button onClick={() => setShareArena(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
+                  <button onClick={() => onBackup(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>💾 Simpan Backup</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>
+                  <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Pulihkan</button>
+                  <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>
+                  <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E63946", color: "#C1121F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
                 </div>
               </div>
             ))}
@@ -3336,6 +3420,19 @@ Hai! Ini data lanjutan sesi kita.
             </div>
           )}
 
+          {shareArena && (
+            <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 20 }} onClick={() => setShareArena(null)}>
+              <div style={{ background: "#FFFFFF", borderRadius: "24px 24px 0 0", padding: 20, width: "100%", maxWidth: 390, border: "2px solid #1D3557", boxShadow: "8px 8px 0 #1D3557" }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontSize: 26, fontWeight: 700, color: "#1D3557", textTransform: "uppercase", marginBottom: 4 }}>Bagikan Arena</div>
+                <div style={{ fontSize: 13, color: "#5E4648", lineHeight: 1.45, marginBottom: 16 }}>{shareArena.name} mau dibagikan untuk siapa?</div>
+                <button onClick={() => { onShare(shareArena, "operator"); setShareArena(null); }} style={{ width: "100%", background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", marginBottom: 10, boxShadow: "4px 4px 0 #1D3557" }}>🎾 Operator Bisa Edit</button>
+                <div style={{ fontSize: 11, color: "#70839C", margin: "-4px 2px 12px", lineHeight: 1.45 }}>Untuk orang yang lanjut input skor, edit pemain, dan mengelola sesi.</div>
+                <button onClick={() => { onShare(shareArena, "viewer"); setShareArena(null); }} style={{ width: "100%", background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "14px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}>📊 Anggota Lihat Saja</button>
+                <div style={{ fontSize: 11, color: "#70839C", margin: "-4px 2px 16px", lineHeight: 1.45 }}>Untuk anggota tim yang hanya ingin melihat data lengkap, klasemen, statistik, pemain, dan skor.</div>
+                <button onClick={() => setShareArena(null)} style={{ width: "100%", padding: "12px", background: "#10171110", border: "none", borderRadius: 12, color: "#101711", fontWeight: 700, cursor: "pointer" }}>Batal</button>
+              </div>
+            </div>
+          )}
           {renamingId && (
             <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setRenamingId(null)}>
               <div style={{ background: "#FFFFFF", borderRadius: 16, padding: 20, width: "100%", maxWidth: 320, border: "2px solid #1D3557" }} onClick={e => e.stopPropagation()}>
@@ -3429,6 +3526,15 @@ Hai! Ini data lanjutan sesi kita.
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
 
 
 
