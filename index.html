@@ -1304,6 +1304,8 @@ Hai! Ini data lanjutan sesi kita.
           matches={matches}
           sessions={sessions}
           currentSessionId={currentSessionId}
+          initialMode={statsFrom === "app" ? "session" : "alltime"}
+          showModeSwitch={false}
           onBack={() => setScreen(statsFrom)}
         />
         {editingPlayer && (
@@ -1468,6 +1470,7 @@ Hai! Ini data lanjutan sesi kita.
               {[
                 { key: "courts", label: "🏸 Match" },
                 { key: "standings", label: "📋 Klasemen" },
+                { key: "stats", label: "📊 Statistik" },
                 { key: "settings", label: "⚙️ Atur" },
               ].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -1678,8 +1681,63 @@ Hai! Ini data lanjutan sesi kita.
               </div>
             )}
 
-            {/* === CHECKIN TAB === */}
-                        {/* === SETTINGS TAB === */}
+            {/* === STATISTIK SESI TAB === */}
+            {tab === "stats" && (() => {
+              const sessionPlayers = players.filter(p => checkedIn.has(p.id));
+              const sessionDone = currentSessionMatches.filter(m => m.status === "done");
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ background: "#FFFFFF", border: "2px solid #1D3557", borderRadius: 18, padding: "14px 16px", boxShadow: "5px 5px 0 #1D3557" }}>
+                    <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontSize: 26, fontWeight: 700, color: "#1D3557", textTransform: "uppercase" }}>Statistik Sesi</div>
+                    <div style={{ fontSize: 12, color: "#5E4648", marginTop: 4 }}>{sessions.find(s => s.id === currentSessionId)?.label} · {checkedIn.size} hadir · {sessionDone.length} match selesai</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#70839C", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Pemain Hadir</div>
+                  {sessionPlayers.length === 0 && (
+                    <div style={{ textAlign: "center", padding: "28px 16px", background: "#FFFFFF", borderRadius: 18, border: "2px solid #1D3557", color: "#70839C", fontSize: 13 }}>Belum ada pemain check-in di sesi ini.</div>
+                  )}
+                  {sessionPlayers.map(p => {
+                    const myMatches = sessionDone.filter(m => [...m.team1, ...m.team2].includes(p.id));
+                    let wins = 0, draws = 0, losses = 0, totalFor = 0, totalAgainst = 0, totalPts = 0;
+                    myMatches.forEach(m => {
+                      const onT1 = m.team1.includes(p.id);
+                      const res = calcMatchResult(m, players);
+                      const won = onT1 ? res.t1Win : res.t2Win;
+                      const lost = onT1 ? res.t2Win : res.t1Win;
+                      if (won) wins++; else if (lost) losses++; else draws++;
+                      const myScore = onT1 ? res.t1Score : res.t2Score;
+                      const oppScore = onT1 ? res.t2Score : res.t1Score;
+                      totalFor += myScore;
+                      totalAgainst += oppScore;
+                      totalPts += myScore + (onT1 ? res.t1S : res.t2S) + (onT1 ? res.t1R : res.t2R);
+                    });
+                    const winRate = myMatches.length > 0 ? Math.round((wins / myMatches.length) * 100) : 0;
+                    const diff = totalFor - totalAgainst;
+                    return (
+                      <div key={p.id} onClick={() => { setStatsPlayerId(p.id); setStatsFrom("app"); setScreen("stats"); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#FFFFFF", border: "2px solid #1D3557", borderRadius: 16, boxShadow: "4px 4px 0 #1D3557", cursor: "pointer" }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 12, background: "#E6394620", border: "2px solid #E63946", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#C1121F" }}>{p.name.slice(0,2).toUpperCase()}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#101711", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                            <TierBadge tier={p.tier} small />
+                          </div>
+                          <div style={{ fontSize: 11, color: "#70839C", marginTop: 2 }}>{myMatches.length} match · {wins}W {draws}D {losses}L · Diff {diff >= 0 ? "+" : ""}{diff}</div>
+                        </div>
+                        <div style={{ textAlign: "right", minWidth: 54 }}>
+                          <div style={{ fontSize: 15, fontWeight: 900, color: "#C1121F", fontFamily: "'DM Mono', monospace" }}>{totalPts}</div>
+                          <div style={{ fontSize: 9, color: "#8798AE" }}>pts</div>
+                        </div>
+                        <div style={{ textAlign: "right", minWidth: 42 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: winRate >= 50 ? "#1D3557" : "#E63946", fontFamily: "'DM Mono', monospace" }}>{winRate}%</div>
+                          <div style={{ fontSize: 9, color: "#8798AE" }}>win</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* === SETTINGS TAB === */}
             {tab === "settings" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -2390,10 +2448,64 @@ Hai! Ini data lanjutan sesi kita.
 
 
     // ===== PLAYER STATS SCREEN =====
-    function PlayerStatsScreen({ player, players, matches, sessions, currentSessionId, onBack }) {
-      const [mode, setMode] = React.useState("alltime"); // "alltime" | "session"
+    function PlayerStatsScreen({ player, players, matches, sessions, currentSessionId, initialMode = "alltime", showModeSwitch = false, onBack }) {
+      const [mode, setMode] = React.useState(initialMode); // "alltime" | "session"
       const [trendRange, setTrendRange] = React.useState(12); // 12 | 24 | "all"
+      const [playerStatsShareBusy, setPlayerStatsShareBusy] = React.useState(null);
+      const playerStatsRef = React.useRef(null);
+      React.useEffect(() => setMode(initialMode), [initialMode, player.id]);
       const getPlayer = id => players.find(p => p.id === id);
+
+      const getPlayerStatsBlob = async () => {
+        const el = playerStatsRef.current;
+        if (!el || !window.html2canvas) throw new Error("Statistik pemain belum siap");
+        const originalCss = el.style.cssText;
+        el.style.width = "430px";
+        el.style.maxWidth = "430px";
+        const canvas = await window.html2canvas(el, { backgroundColor: "#F1FAEE", scale: 2, useCORS: true });
+        el.style.cssText = originalCss;
+        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      };
+
+      const handleDownloadPlayerStats = async () => {
+        setPlayerStatsShareBusy("download");
+        try {
+          const blob = await getPlayerStatsBlob();
+          const safeName = player.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Pemain";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Statistik-${safeName}-CourtRank-${new Date().toISOString().slice(0, 10)}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(e);
+        }
+        setPlayerStatsShareBusy(null);
+      };
+
+      const handleSharePlayerStatsWA = async () => {
+        setPlayerStatsShareBusy("share");
+        try {
+          const blob = await getPlayerStatsBlob();
+          const file = new File([blob], "statistik-pemain.jpg", { type: "image/jpeg" });
+          const modeLabel = mode === "alltime" ? "All Time" : "Sesi Ini";
+          let textMsg = `📊 *STATISTIK PEMAIN COURTRANK*\n\n`;
+          textMsg += `${player.name} · Tier ${player.tier} · ${modeLabel}\n`;
+          textMsg += `${stats.total} match · ${stats.wins}W ${stats.draws}D ${stats.losses}L\n`;
+          textMsg += `Win Rate ${stats.winRate}% · ${stats.totalPts} pts · Diff ${stats.totalFor - stats.totalAgainst >= 0 ? "+" : ""}${stats.totalFor - stats.totalAgainst}`;
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: `Statistik ${player.name}`, text: textMsg, files: [file] });
+          } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(textMsg)}`, "_blank");
+          }
+        } catch (e) {
+          if (e.name !== "AbortError") console.error(e);
+        }
+        setPlayerStatsShareBusy(null);
+      };
 
       const computeStats = (pid, matchPool) => {
         const done = matchPool.filter(m => m.status === "done" && [...m.team1,...m.team2].includes(pid));
@@ -2488,14 +2600,30 @@ Hai! Ini data lanjutan sesi kita.
                 <div style={{fontSize:11, color:"#5E4648", display:"flex", alignItems:"center", gap:6}}><TierBadge tier={player.tier} small /> {stats.total} match dimainkan</div>
               </div>
             </div>
-            <div style={{display:"flex", background:"#F1FAEE", borderRadius:10, padding:3, marginBottom:12, border:"1px solid #10171110"}}>
-              {[["alltime","🏆 All Time"],["session","📅 Sesi Ini"]].map(([k,l])=>(
-                <button key={k} onClick={()=>setMode(k)} style={{flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:12, background:mode===k?"#E63946":"none", color:mode===k?"#fff":"#70839C", fontFamily:"'Lexend',sans-serif"}}>{l}</button>
-              ))}
-            </div>
+            {showModeSwitch && (
+              <div style={{display:"flex", background:"#F1FAEE", borderRadius:10, padding:3, marginBottom:12, border:"1px solid #10171110"}}>
+                {[["alltime","🏆 All Time"],["session","📅 Sesi Ini"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setMode(k)} style={{flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:12, background:mode===k?"#E63946":"none", color:mode===k?"#fff":"#70839C", fontFamily:"'Lexend',sans-serif"}}>{l}</button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div style={{padding:"16px 16px 40px", display:"flex", flexDirection:"column", gap:14}}>
+          <div style={{padding:"12px 16px 0", display:"flex", gap:8}}>
+            <button onClick={handleDownloadPlayerStats} disabled={playerStatsShareBusy !== null} style={{flex:1, background:"#FFFFFF", border:"2px solid #1D3557", borderRadius:16, padding:"12px 10px", cursor:playerStatsShareBusy !== null ? "default" : "pointer", color:"#5A3A3D", fontWeight:800, fontSize:12, fontFamily:"'Lexend',sans-serif"}}>{playerStatsShareBusy === "download" ? "⏳" : "💾"} Simpan Gambar</button>
+            <button onClick={handleSharePlayerStatsWA} disabled={playerStatsShareBusy !== null} style={{flex:1, background:playerStatsShareBusy === "share" ? "#8798AE" : "#1D3557", border:"2px solid #1D3557", borderRadius:16, padding:"12px 10px", cursor:playerStatsShareBusy !== null ? "default" : "pointer", color:"#fff", fontWeight:800, fontSize:12, fontFamily:"'Lexend',sans-serif"}}>{playerStatsShareBusy === "share" ? "⏳" : "💬"} Kirim WA</button>
+          </div>
+
+          <div ref={playerStatsRef} id="player-stats-board" style={{padding:"16px 16px 40px", display:"flex", flexDirection:"column", gap:14, background:"#F1FAEE"}}>
+
+            <div style={{background:"#FFFFFF", border:"2px solid #1D3557", borderRadius:18, padding:"12px 14px", boxShadow:"6px 8px 0 #1D3557"}}>
+              <div style={{fontSize:10, color:"#70839C", fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4}}>Statistik Pemain · {mode === "alltime" ? "All Time" : "Sesi Ini"}</div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <div style={{fontFamily:"'Archivo Narrow',sans-serif", fontStyle:"italic", fontWeight:700, fontSize:24, color:"#C1121F", textTransform:"uppercase", flex:1}}>{player.name}</div>
+                <TierBadge tier={player.tier} />
+              </div>
+              <div style={{fontSize:11, color:"#5E4648", marginTop:4}}>{stats.total} match dimainkan · {stats.wins}W {stats.draws}D {stats.losses}L</div>
+            </div>
 
             {/* Overview boxes */}
             <div style={{display:"flex", gap:8}}>
@@ -3301,6 +3429,9 @@ Hai! Ini data lanjutan sesi kita.
   </script>
 </body>
 </html>
+
+
+
 
 
 
