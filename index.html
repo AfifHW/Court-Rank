@@ -328,6 +328,11 @@
       const [h2hPlayer, setH2hPlayer] = useState(null);
       const [statsPlayerId, setStatsPlayerId] = useState(null);
       const [statsFrom, setStatsFrom] = useState("session");
+      const appHistoryReadyRef = useRef(false);
+      const applyingBrowserHistoryRef = useRef(false);
+      const replaceNextHistoryRef = useRef(false);
+      const appHistoryDepthRef = useRef(0);
+      const lastAppHistoryKeyRef = useRef("");
       // standingsMode removed — harian in app, alltime in session screen
 
       // ---- helpers to load/save per-workspace data ----
@@ -379,6 +384,24 @@
           if (isReadOnlyData) setTab("courts");
         } catch(e) { console.error(e); }
       };
+
+      const buildAppHistoryState = useCallback(() => ({
+        courtRankNav: true,
+        screen,
+        workspaceId,
+        currentSessionId,
+        statsPlayerId,
+        statsFrom,
+      }), [screen, workspaceId, currentSessionId, statsPlayerId, statsFrom]);
+
+      const goBackInApp = useCallback((fallback) => {
+        if (appHistoryDepthRef.current > 0) {
+          window.history.back();
+          return;
+        }
+        replaceNextHistoryRef.current = true;
+        fallback();
+      }, []);
 
       useEffect(() => {
         // Load workspaces list
@@ -472,6 +495,55 @@
         }
         setIsLoaded(true);
       }, []);
+
+      useEffect(() => {
+        const handlePopState = (event) => {
+          const nav = event.state;
+          if (!nav || !nav.courtRankNav) return;
+          applyingBrowserHistoryRef.current = true;
+          appHistoryDepthRef.current = Math.max(0, appHistoryDepthRef.current - 1);
+          setScreen(nav.screen || "workspace");
+          setWorkspaceId(nav.workspaceId || null);
+          if (nav.workspaceId && nav.workspaceId !== workspaceId) loadWorkspaceData(nav.workspaceId);
+          setCurrentSessionId(nav.currentSessionId || "s1");
+          setStatsPlayerId(nav.statsPlayerId || null);
+          setStatsFrom(nav.statsFrom || "session");
+          setScoreModal(null);
+          setManualModal(false);
+          setSmartPreview(null);
+          setEditingPlayer(null);
+          setConfirmDialog(null);
+          setH2hPlayer(null);
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+      }, [workspaceId]);
+
+      useEffect(() => {
+        if (!isLoaded) return;
+        const nav = buildAppHistoryState();
+        const key = JSON.stringify(nav);
+        if (!appHistoryReadyRef.current) {
+          window.history.replaceState(nav, "", window.location.href);
+          appHistoryReadyRef.current = true;
+          lastAppHistoryKeyRef.current = key;
+          return;
+        }
+        if (applyingBrowserHistoryRef.current) {
+          lastAppHistoryKeyRef.current = key;
+          applyingBrowserHistoryRef.current = false;
+          return;
+        }
+        if (key === lastAppHistoryKeyRef.current) return;
+        if (replaceNextHistoryRef.current) {
+          window.history.replaceState(nav, "", window.location.href);
+          replaceNextHistoryRef.current = false;
+        } else {
+          window.history.pushState(nav, "", window.location.href);
+          appHistoryDepthRef.current += 1;
+        }
+        lastAppHistoryKeyRef.current = key;
+      }, [isLoaded, buildAppHistoryState]);
 
       // Save per-workspace + update workspace list timestamp
       useEffect(() => {
@@ -1364,7 +1436,7 @@
           currentSessionId={currentSessionId}
           initialMode={statsFrom === "app" ? "session" : "alltime"}
           showModeSwitch={false}
-          onBack={() => setScreen(statsFrom)}
+          onBack={() => goBackInApp(() => setScreen(statsFrom))}
         />
         {editingPlayer && (
           <EditPlayerModal
@@ -1434,7 +1506,7 @@
             setScreen("app");
             showNotify(`${newSession.label} dimulai!`, "success");
           }}
-          onBack={() => setScreen("workspace")}
+          onBack={() => goBackInApp(() => setScreen("workspace"))}
           onBackup={() => handleDownloadWorkspaceBackup(workspaces.find(w => w.id === workspaceId))}
           onRestore={() => handleRestoreWorkspaceBackup(workspaces.find(w => w.id === workspaceId))}
           onViewStats={(p) => { setStatsPlayerId(p.id); setStatsFrom("session"); setScreen("stats"); }}
@@ -1522,7 +1594,7 @@
             position: "sticky", top: 0, zIndex: 100,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <button onClick={() => setScreen("session")} style={{ background: "#10171110", border: "none", borderRadius: 16, padding: "8px 12px", color: "#5E4648", fontSize: 13, cursor: "pointer" }}>←</button>
+              <button onClick={() => goBackInApp(() => setScreen("session"))} style={{ background: "#10171110", border: "none", borderRadius: 16, padding: "8px 12px", color: "#5E4648", fontSize: 13, cursor: "pointer" }}>←</button>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
                 background: "#E63946",
@@ -1873,7 +1945,7 @@
                     {sessions.find(s => s.id === currentSessionId)?.label} — {sessions.find(s => s.id === currentSessionId)?.date}
                   </div>
                   <div style={{ fontSize: 12, color: "#70839C", marginBottom: 12 }}>Sesi ke-{sessions.findIndex(s => s.id === currentSessionId) + 1} dari {sessions.length} total sesi</div>
-                  <button onClick={() => setScreen("session")} style={{ width: "100%", padding: "11px", background: "#10171108", border: "2px solid #1D3557", borderRadius: 10, color: "#101711", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>📋 Lihat All Time</button>
+                  <button onClick={() => goBackInApp(() => setScreen("session"))} style={{ width: "100%", padding: "11px", background: "#10171108", border: "2px solid #1D3557", borderRadius: 10, color: "#101711", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>📋 Lihat All Time</button>
                 </div>
 
                 {/* Reset Danger Zone */}
