@@ -670,12 +670,17 @@
         setConfirmDialog({
           title: "Hapus Pemain",
           message: `Yakin ingin menghapus ${name}? Data klasemen mereka akan ditarik.`,
-          isDanger: true,
-          onConfirm: () => {
-            setPlayers(prev => prev.filter(p => p.id !== id));
-            setCheckedInBySession(prev => Object.fromEntries(
-              Object.entries(prev).map(([sid, ids]) => [sid, (ids || []).filter(pid => pid !== id)])
-            ));
+            isDanger: true,
+            onConfirm: () => {
+              setPlayers(prev => prev.filter(p => p.id !== id));
+              setCheckedIn(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+              setCheckedInBySession(prev => Object.fromEntries(
+                Object.entries(prev).map(([sid, ids]) => [sid, (ids || []).filter(pid => pid !== id)])
+              ));
             showNotify(`${name} berhasil dihapus.`);
             setConfirmDialog(null);
           }
@@ -1435,7 +1440,7 @@
           onViewStats={(p) => { setStatsPlayerId(p.id); setStatsFrom("session"); setScreen("stats"); }}
           onEditPlayer={(p) => { setEditingPlayer(p); }}
           onAddPlayer={handleAddPlayer}
-          onDeletePlayer={(id, name) => handleDeletePlayer(id, name, null)}
+          onDeletePlayer={handleDeletePlayer}
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           newPlayerTier={newPlayerTier}
@@ -1477,6 +1482,18 @@
               setEditingPlayer(null);
             }}
           />
+        )}
+        {confirmDialog && (
+          <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setConfirmDialog(null)}>
+            <div style={{ background: "#FFFFFF", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320, border: "2px solid #1D3557", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: confirmDialog.isDanger ? "#C1121F" : "#101711" }}>{confirmDialog.title}</div>
+              <div style={{ fontSize: 13, color: "#5E4648", marginBottom: 24, lineHeight: 1.5 }}>{confirmDialog.message}</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setConfirmDialog(null)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#10171110", border: "none", color: "#101711", fontWeight: 600, cursor: "pointer" }}>Batal</button>
+                <button onClick={confirmDialog.onConfirm} style={{ flex: 1, padding: "12px", borderRadius: 10, background: confirmDialog.isDanger ? "#FFE9EC" : "#E63946", border: confirmDialog.isDanger ? "1px solid #E6394645" : "none", color: confirmDialog.isDanger ? "#C1121F" : "#FFFFFF", fontWeight: 600, cursor: "pointer" }}>{confirmDialog.isDanger ? "Hapus" : "OK"}</button>
+              </div>
+            </div>
+          </div>
         )}
         </>;
       }
@@ -3181,7 +3198,7 @@
                                 </div>
                                 <TierBadge tier={p.tier} small />
                                 {!readOnly && <button onClick={() => onEditPlayer(p)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Edit</button>}
-                                {!readOnly && <button onClick={() => onDeletePlayer(p.id, p.name)} style={{ background: "#FFE9EC30", border: "1px solid #E6394650", color: "#C1121F", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>}
+                                {!readOnly && <button onClick={(e) => onDeletePlayer(p.id, p.name, e)} style={{ background: "#FFE9EC30", border: "1px solid #E6394650", color: "#C1121F", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>}
                               </div>
                               {history.length > 0 && (
                                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #10171108" }}>
