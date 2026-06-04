@@ -294,7 +294,6 @@
       const [readOnly, setReadOnly] = useState(false);
       const [gistStatus, setGistStatus] = useState(null); // null | "saving" | "saved" | "error"
       const [showGistModal, setShowGistModal] = useState(false);
-      const [showHandoverModal, setShowHandoverModal] = useState(false);
       const [smartPreview, setSmartPreview] = useState(null); // {team1, team2, court, allCandidates}
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
@@ -375,7 +374,9 @@
           if (data.currentSessionId) setCurrentSessionId(data.currentSessionId);
           if (data.githubGistId) setGithubGistId(data.githubGistId);
           else setGithubGistId("");
-          setReadOnly(!!data.readOnly);
+          const isReadOnlyData = !!data.readOnly;
+          setReadOnly(isReadOnlyData);
+          if (isReadOnlyData) setTab("courts");
         } catch(e) { console.error(e); }
       };
 
@@ -427,7 +428,7 @@
         const savedToken = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
         setGithubToken(savedToken);
 
-        // Check URL for shared/handover data
+        // Check URL for shared Arena data
         const params = new URLSearchParams(window.location.search);
         const sharedData = params.get('d') || params.get('data');
         if (sharedData && window.LZString) {
@@ -446,7 +447,7 @@
                 const wsName = repairStoredText(data.wsName || "Arena dari Link");
                 const wsEmoji = repairStoredText(data.wsEmoji || "🏸");
                 const newWsId = `ws_${Date.now()}`;
-                const newWs = { id: newWsId, name: wsName, emoji: wsEmoji, updatedAt: Date.now() };
+                const newWs = { id: newWsId, name: wsName, emoji: wsEmoji, updatedAt: Date.now(), readOnly: !!data.viewOnly };
                 const updatedList = [...wsList.filter(w => w.name !== wsName), newWs];
                 localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updatedList));
                 setWorkspaces(updatedList);
@@ -633,11 +634,19 @@
       };
 
       const handleAddPlayer = (e) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (e && e.preventDefault) e.preventDefault();
-        if (!newPlayerName.trim()) return;
+        const cleanName = newPlayerName.trim();
+        if (!cleanName) return;
+        const normalizedName = cleanName.toLocaleLowerCase("id-ID");
+        const isDuplicate = players.some(p => (p.name || "").trim().toLocaleLowerCase("id-ID") === normalizedName);
+        if (isDuplicate) {
+          showNotify(`Nama ${cleanName} sudah ada. Gunakan nama lain.`, "error");
+          return;
+        }
         const newPlayer = {
           id: Date.now(),
-          name: newPlayerName.trim(),
+          name: cleanName,
           tier: newPlayerTier,
         };
         setPlayers(prev => [...prev, newPlayer]);
@@ -647,6 +656,7 @@
       };
 
       const toggleCheckIn = (id) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         setCheckedIn(prev => {
           const n = new Set(prev);
           n.has(id) ? n.delete(id) : n.add(id);
@@ -655,6 +665,7 @@
       };
 
       const handleDeletePlayer = (id, name, e) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (e && e.stopPropagation) e.stopPropagation();
         setConfirmDialog({
           title: "Hapus Pemain",
@@ -672,6 +683,7 @@
       };
 
       const handleResetCurrentSession = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const sess = sessions.find(s => s.id === currentSessionId);
         const firstSessionId = sessions[0]?.id || "s1";
         setConfirmDialog({
@@ -692,6 +704,7 @@
 
 
       const handleNewSession = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const sessionNum = sessions.length + 1;
         const newSession = {
           id: `s${Date.now()}`,
@@ -706,6 +719,7 @@
       };
 
       const handleReduceCourt = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (numCourts > 1) {
           if (occupiedCourts.has(numCourts)) {
             showNotify(`Match ${numCourts} sedang terpakai!`, "error");
@@ -775,47 +789,6 @@
         }
       };
 
-      // ---- Handover link generator ----
-      const buildHandoverLink = () => {
-        const payload = buildFullPayload();
-        const minified = {
-          p: payload.players.map(p => [p.id, p.name, p.tier]),
-          m: payload.matches.map(m => [m.id, m.courtId, m.status === 'ongoing' ? 0 : 1, m.team1, m.team2, m.games.map(g => [g.t1, g.t2]), m.tierSnapshot || {}, m.sessionId || "s1"]),
-          c: payload.checkedIn, cbs: payload.checkedInBySession, n: payload.numCourts,
-          sessions: payload.sessions, currentSessionId: payload.currentSessionId,
-          wsName: payload.wsName, wsEmoji: payload.wsEmoji,
-          gistId: payload.githubGistId || "",
-        };
-        const compressed = window.LZString.compressToEncodedURIComponent(JSON.stringify(minified));
-        const baseUrl = window.location.href.split('?')[0].split('#')[0];
-        return `${baseUrl}?d=${compressed}`;
-      };
-
-      const handleHandoverWA = () => {
-        const link = buildHandoverLink();
-        const wsName = workspaces.find(w => w.id === workspaceId)?.name || "Arena";
-        const sessLabel = sessions.find(s => s.id === currentSessionId)?.label || "Sesi";
-        const doneMathces = matches.filter(m => m.status === "done").length;
-        const msg = `🎾 *HANDOVER COURTRANK — ${wsName.toUpperCase()}*
-
-Hai! Ini data lanjutan sesi kita.
-📅 ${sessLabel} · ${doneMathces} match selesai
-👥 ${players.length} pemain terdaftar
-
-*Cara buka:*
-1. Buka link ini di browser
-2. Data otomatis masuk sebagai Arena baru
-3. Lanjutkan input skor!
-
-🔗 ${link}`;
-        if (navigator.share) {
-          navigator.share({ title: `CourtRank ${wsName}`, text: msg }).catch(() => fallbackCopy(msg));
-        } else if (navigator.clipboard && window.isSecureContext) {
-          navigator.clipboard.writeText(msg).then(() => showNotify("Pesan handover disalin!", "success")).catch(() => fallbackCopy(msg));
-        } else { fallbackCopy(msg); }
-        setShowHandoverModal(false);
-      };
-
       const getStandingsBlob = async () => {
         const el = document.getElementById("standings-board");
         if (!el) throw new Error("Tabel klasemen tidak ditemukan");
@@ -856,7 +829,7 @@ Hai! Ini data lanjutan sesi kita.
         setIsProcessing(null);
       };
 
-      const generateShareText = (link) => {
+      const generateShareText = () => {
         let textMsg = `🎾 *KLASEMEN HARIAN COURTRANK* 🎾\n\n`;
         if (standings.length > 0) {
           textMsg += `🏆 *WOW OF THE DAY: ${standings[0].name}*\nWinner Over Winners - performa terbaik hari ini.\n\n`;
@@ -870,7 +843,7 @@ Hai! Ini data lanjutan sesi kita.
         if (afkPlayer) {
           textMsg += `😴 *AFK OF THE DAY: ${afkPlayer.name}*\nAttendance Frequency Kurang - paling perlu dikejar rotasi mainnya.\n\n`;
         }
-        textMsg += `Cek klasemen lengkap & skor match di sini:\n🔗 ${link}`;
+        textMsg += `Gambar klasemen terlampir. Untuk data lengkap, gunakan menu Bagikan di Arena.`;
         return textMsg;
       };
 
@@ -880,20 +853,7 @@ Hai! Ini data lanjutan sesi kita.
           const blob = await getStandingsBlob();
           const file = new File([blob], "klasemen.jpg", { type: "image/jpeg" });
 
-          const minifiedPlayers = players.map(p => [p.id, p.name, p.tier]);
-          const minifiedMatches = matches.map(m => [
-            m.id, m.courtId, m.status === 'ongoing' ? 0 : 1,
-            m.team1, m.team2, m.games.map(g => [g.t1, g.t2]), m.tierSnapshot || {}, m.sessionId || "s1"
-          ]);
-          const payload = JSON.stringify({
-            p: minifiedPlayers, m: minifiedMatches, c: Array.from(checkedIn), n: numCourts,
-            sessions, currentSessionId
-          });
-          const compressed = window.LZString.compressToEncodedURIComponent(payload);
-          const baseUrl = window.location.href.split('?')[0].split('#')[0];
-          const shareUrl = `${baseUrl}?d=${compressed}`;
-
-          const textMsg = generateShareText(shareUrl);
+          const textMsg = generateShareText();
 
           try {
             if (navigator.clipboard && window.isSecureContext) {
@@ -938,7 +898,7 @@ Hai! Ini data lanjutan sesi kita.
         const baseUrl = window.location.href.split('?')[0].split('#')[0];
         const shareUrl = `${baseUrl}?d=${compressed}`;
 
-        const textMsg = generateShareText(shareUrl);
+        const textMsg = `📊 *DATA LENGKAP COURTRANK*\n\nBuka link ini untuk melihat data lengkap Arena:\n🔗 ${shareUrl}`;
 
         setIsProcessing(null);
 
@@ -1017,6 +977,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleSmartMatch = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const avail = [...availablePlayers];
         if (avail.length < 4) { showNotify("Butuh minimal 4 pemain tersedia!", "error"); return; }
         const freeCourt = courts.find(c => !occupiedCourts.has(c));
@@ -1046,6 +1007,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleConfirmSmartMatch = (team1Override, team2Override) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const t1 = team1Override || smartPreview.team1;
         const t2 = team2Override || smartPreview.team2;
         const freeCourt = smartPreview.court;
@@ -1066,6 +1028,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleManualMatch = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (manualSelected.length !== 2 && manualSelected.length !== 4) {
           showNotify("Pilih 2 pemain (Single) atau 4 pemain (Double)!", "error"); return;
         }
@@ -1102,6 +1065,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleSubmitScore = (matchId, games, newTeam1, newTeam2, finishMatch) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const cleanGames = games.map(g => ({ t1: Number(g?.t1) || 0, t2: Number(g?.t2) || 0 }));
         const hasAnyScore = cleanGames.some(g => g.t1 > 0 || g.t2 > 0);
         if (finishMatch && !hasAnyScore) {
@@ -1122,6 +1086,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleDeleteMatch = (matchId) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         setConfirmDialog({
           title: "Hapus Match",
           message: "Yakin ingin menghapus pertandingan ini? Skor dan data terkait akan dihapus secara permanen.",
@@ -1178,6 +1143,7 @@ Hai! Ini data lanjutan sesi kita.
 
       const handleResetWorkspace = (wsId) => {
         const ws = workspaces.find(w => w.id === wsId);
+        if (ws?.readOnly) return showNotify("Arena lihat saja tidak bisa di-reset.", "error");
         setConfirmDialog({
           title: "Reset Arena Ini",
           message: `Yakin ingin mereset ${ws?.name || "Arena ini"}? Semua pemain, sesi, match, daftar hadir, dan klasemen di Arena ini akan dikosongkan. Nama Arena tetap dipertahankan.`,
@@ -1203,6 +1169,8 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleRenameWorkspace = (wsId, newName) => {
+        const ws = workspaces.find(w => w.id === wsId);
+        if (ws?.readOnly) return showNotify("Arena lihat saja tidak bisa di-rename.", "error");
         const cleanName = newName.trim();
         if (!cleanName) return;
         const updated = workspaces.map(w => w.id === wsId ? { ...w, name: cleanName, updatedAt: Date.now() } : w);
@@ -1240,6 +1208,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleRestoreWorkspaceBackup = (ws) => {
+        if (ws?.readOnly) return showNotify("Arena lihat saja tidak bisa di-load backup.", "error");
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".json,application/json";
@@ -1288,6 +1257,7 @@ Hai! Ini data lanjutan sesi kita.
       };
 
       const handleDeleteSession = (sessionId) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (sessions.length <= 1) {
           showNotify("Minimal harus ada 1 sesi.", "error");
           return;
@@ -1319,7 +1289,7 @@ Hai! Ini data lanjutan sesi kita.
         });
       };
 
-      const handleShareWorkspace = (ws, shareType = "operator") => {
+      const handleShareWorkspace = (ws) => {
         if (!window.LZString) { showNotify("Sedang menyiapkan data...", "error"); return; }
         const raw = localStorage.getItem(`courtRank_ws_${ws.id}`);
         if (!raw) { showNotify("Data Arena tidak ditemukan", "error"); return; }
@@ -1329,7 +1299,6 @@ Hai! Ini data lanjutan sesi kita.
           const safeMatches = data.matches || [];
           const safeSessions = data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now() }];
           const wsFixed = repairWorkspace(ws);
-          const viewOnly = shareType === "viewer";
           const minified = {
             p: safePlayers.map(p => [p.id, p.name, p.tier]),
             m: safeMatches.map(m => [m.id, m.courtId, m.status === 'ongoing' ? 0 : 1, m.team1, m.team2, (m.games || []).map(g => [g.t1, g.t2]), m.tierSnapshot || {}, m.sessionId || "s1"]),
@@ -1339,25 +1308,23 @@ Hai! Ini data lanjutan sesi kita.
             currentSessionId: data.currentSessionId || safeSessions[0]?.id || "s1",
             wsName: wsFixed.name,
             wsEmoji: wsFixed.emoji,
-            viewOnly,
+            viewOnly: false,
           };
           const compressed = window.LZString.compressToEncodedURIComponent(JSON.stringify(minified));
           const baseUrl = window.location.href.split('?')[0].split('#')[0];
           const link = `${baseUrl}?d=${compressed}`;
           const doneMatches = safeMatches.filter(m => m.status === "done").length;
-          const title = viewOnly ? `Data Lengkap ${wsFixed.name}` : `Handover ${wsFixed.name}`;
-          const msg = viewOnly
-            ? `📊 *DATA LENGKAP COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nLihat data Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nLink untuk melihat klasemen, statistik, pemain, sesi, dan skor match:\n🔗 ${link}`
-            : `🎾 *HANDOVER OPERATOR COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap untuk lanjut input:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk lanjut input skor dan kelola Arena:\n🔗 ${link}`;
+          const title = `Bagikan ${wsFixed.name}`;
+          const msg = `🎾 *BAGIKAN ARENA COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk melihat data lengkap atau lanjut input sebagai operator:\n🔗 ${link}`;
           if (navigator.share) {
             navigator.share({ title, text: msg }).catch(err => {
               if (err.name !== "AbortError") fallbackCopy(msg);
             });
           } else if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(msg).then(() => showNotify(viewOnly ? "Link lihat data disalin!" : "Link handover disalin!", "success")).catch(() => fallbackCopy(msg));
+            navigator.clipboard.writeText(msg).then(() => showNotify("Link Bagikan disalin!", "success")).catch(() => fallbackCopy(msg));
           } else {
             fallbackCopy(msg);
-            showNotify(viewOnly ? "Link lihat data disalin!" : "Link handover disalin!", "success");
+            showNotify("Link Bagikan disalin!", "success");
           }
         } catch (e) {
           console.error(e);
@@ -1401,6 +1368,11 @@ Hai! Ini data lanjutan sesi kita.
             currentSessionLabel={sessions.find(s=>s.id===currentSessionId)?.label||"Sesi ini"}
             onClose={() => setEditingPlayer(null)}
             onSave={(id, newName, newTier, changeType) => {
+              if (readOnly) {
+                showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
+                setEditingPlayer(null);
+                return;
+              }
               const player = players.find(p => p.id === id);
               const tierChanged = player && newTier !== player.tier;
               setPlayers(prev => prev.map(p => {
@@ -1443,6 +1415,7 @@ Hai! Ini data lanjutan sesi kita.
           onSelectSession={(sId) => { setCurrentSessionId(sId); setScreen("app"); }}
           onDeleteSession={handleDeleteSession}
           onNewSession={() => {
+            if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
             const sessionNum = sessions.length + 1;
             const newSession = {
               id: `s${Date.now()}`,
@@ -1576,19 +1549,23 @@ Hai! Ini data lanjutan sesi kita.
             {/* === COURTS / MATCH TAB === */}
             {tab === "courts" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={handleSmartMatch} style={{
-                    flex: 1, padding: "13px 10px", background: "#E63946",
-                    border: "none", borderRadius: 16, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 13,
-                  }}>⚡ Smart Match</button>
-                  <button onClick={() => {
-                    setManualCourt(courts.find(c => !occupiedCourts.has(c)) || 1);
-                    setManualModal(true);
-                  }} style={{
-                    flex: 1, padding: "13px 10px", background: "#FFFFFF", border: "2px solid #1D3557",
-                    borderRadius: 12, color: "#101711", fontWeight: 700, cursor: "pointer", fontSize: 13,
-                  }}>🎯 Manual</button>
-                </div>
+                {readOnly ? (
+                  <div style={{ background: "#1D355712", border: "2px solid #1D3557", borderRadius: 16, padding: "12px 14px", color: "#1D3557", fontSize: 12, fontWeight: 750, textAlign: "center" }}>Mode lihat saja · input dan edit data dinonaktifkan</div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={handleSmartMatch} style={{
+                      flex: 1, padding: "13px 10px", background: "#E63946",
+                      border: "none", borderRadius: 16, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 13,
+                    }}>⚡ Smart Match</button>
+                    <button onClick={() => {
+                      setManualCourt(courts.find(c => !occupiedCourts.has(c)) || 1);
+                      setManualModal(true);
+                    }} style={{
+                      flex: 1, padding: "13px 10px", background: "#FFFFFF", border: "2px solid #1D3557",
+                      borderRadius: 12, color: "#101711", fontWeight: 700, cursor: "pointer", fontSize: 13,
+                    }}>🎯 Manual</button>
+                  </div>
+                )}
 
                 <div style={{ fontSize: 12, color: "#70839C", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Lapangan Aktif
@@ -1615,7 +1592,7 @@ Hai! Ini data lanjutan sesi kita.
                         <MatchCard
                           match={activeMatch}
                           players={players}
-                          onScore={() => setScoreModal(activeMatch)}
+                          onScore={readOnly ? null : () => setScoreModal(activeMatch)}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: "#70839C", lineHeight: 1.5 }}>
@@ -1643,7 +1620,7 @@ Hai! Ini data lanjutan sesi kita.
                       key={match.id}
                       match={match}
                       players={players}
-                      onEdit={() => setScoreModal(match)}
+                      onEdit={readOnly ? null : () => setScoreModal(match)}
                     />
                   ))}
                 </div>
@@ -1825,7 +1802,7 @@ Hai! Ini data lanjutan sesi kita.
             })()}
 
             {/* === SETTINGS TAB === */}
-            {tab === "settings" && (
+            {!readOnly && tab === "settings" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
                 {/* Jumlah Lapangan */}
@@ -2039,7 +2016,7 @@ Hai! Ini data lanjutan sesi kita.
             );
           })()}
 
-          {smartPreview && (
+          {!readOnly && smartPreview && (
             <SmartPreviewModal
               preview={smartPreview}
               players={players}
@@ -2060,17 +2037,7 @@ Hai! Ini data lanjutan sesi kita.
             />
           )}
 
-          {showHandoverModal && (
-            <HandoverModal
-              onHandover={handleHandoverWA}
-              onClose={() => setShowHandoverModal(false)}
-              workspaceName={workspaces.find(w => w.id === workspaceId)?.name || "Arena"}
-              matchCount={matches.filter(m => m.status === "done").length}
-              playerCount={players.length}
-            />
-          )}
-
-          {scoreModal && (
+          {!readOnly && scoreModal && (
             <ScoreModal
               match={scoreModal} players={players}
               onClose={() => setScoreModal(null)}
@@ -2079,7 +2046,7 @@ Hai! Ini data lanjutan sesi kita.
             />
           )}
 
-          {manualModal && (
+          {!readOnly && manualModal && (
             <ManualModal
               players={availablePlayers}
               courts={courts.filter(c => !occupiedCourts.has(c))}
@@ -2207,10 +2174,10 @@ Hai! Ini data lanjutan sesi kita.
               </div>
             ))}
           </div>
-          <button onClick={(e) => { e.stopPropagation(); onScore(); }} style={{
+          {onScore && <button onClick={(e) => { e.stopPropagation(); onScore(); }} style={{
             width: "100%", padding: "10px", background: "#E63946",
             border: "none", borderRadius: 8, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer",
-          }}>📝 Input Skor</button>
+          }}>📝 Input Skor</button>}
         </div>
       );
     }
@@ -2229,9 +2196,9 @@ Hai! Ini data lanjutan sesi kita.
       const t1Won = res.t1Win, t2Won = res.t2Win;
       const hasSnapshot = Object.keys(snap).length > 0;
       return (
-        <div onClick={onEdit} style={{
+        <div onClick={onEdit || undefined} style={{
           background: "#FFFFFF", border: "2px solid #1D3557",
-          borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer",
+          borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: onEdit ? "pointer" : "default",
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
             <div style={{ flex: 1 }}>
@@ -2930,7 +2897,7 @@ Hai! Ini data lanjutan sesi kita.
     }
 
     // ===== SESSION SCREEN =====
-    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, onSelectSession, onNewSession, onDeleteSession, onBack, onBackup, onRestore, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier }) {
+    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, readOnly = false, onSelectSession, onNewSession, onDeleteSession, onBack, onBackup, onRestore, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier }) {
       const medals = ["🥇","🥈","🥉"];
       const [sessionTab, setSessionTab] = React.useState("sessions"); // sessions | players | rules
       const [allTimeShareBusy, setAllTimeShareBusy] = React.useState(null);
@@ -2972,7 +2939,25 @@ Hai! Ini data lanjutan sesi kita.
           let textMsg = `🏆 *KLASEMEN ALL TIME COURTRANK*\n\n`;
           textMsg += `${wsName} · ${sessions.length} sesi · ${allDoneMatches.length} match selesai\n`;
           if (allTimeStandings.length > 0) {
-            textMsg += `\n👑 #1 ${allTimeStandings[0].name} — ${allTimeStandings[0].P} pts`;
+            const wow = allTimeStandings[0];
+            const sos = allTimeStandings.length > 1 ? allTimeStandings[allTimeStandings.length - 1] : null;
+            let mbgAt = null, maxR = 0;
+            allTimeStandings.forEach(p => {
+              if (p.totalR > maxR) {
+                maxR = p.totalR;
+                mbgAt = p;
+              }
+            });
+            textMsg += `\n🏆 *WOW ALL TIME: ${wow.name}*`;
+            textMsg += `\n(Winner Over Winners) · ${wow.P} pts · ${wow.W}W ${wow.L}L`;
+            if (sos) {
+              textMsg += `\n\n🤡 *SOS ALL TIME: ${sos.name}*`;
+              textMsg += `\n(Score Optimization Needed) · ${sos.P} pts`;
+            }
+            if (mbgAt) {
+              textMsg += `\n\n📈 *MBG ALL TIME: ${mbgAt.name}*`;
+              textMsg += `\n(Making Big Gains) · +${mbgAt.totalR}R`;
+            }
           }
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ title: "Klasemen All Time CourtRank", text: textMsg, files: [file] });
@@ -3009,10 +2994,14 @@ Hai! Ini data lanjutan sesi kita.
                 <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 24, color: "#C1121F", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{wsName}</div>
                 <div style={{ fontSize: 11, color: "#5E4648" }}>{sessions.length} sesi · {players.length} pemain · {matches.filter(m => m.status === "done").length} match</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, minWidth: 92 }}>
-                <button title="Backup data Arena" onClick={onBackup} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Backup</button>
-                <button title="Load file backup" onClick={onRestore} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Load</button>
-              </div>
+              {readOnly ? (
+                <div style={{ background: "#1D355712", border: "1px solid #1D355735", color: "#1D3557", borderRadius: 12, padding: "6px 8px", fontSize: 10, fontWeight: 850, whiteSpace: "nowrap" }}>Lihat saja</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, minWidth: 92 }}>
+                  <button title="Backup data Arena" onClick={onBackup} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Backup</button>
+                  <button title="Load file backup" onClick={onRestore} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Load</button>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 0 }}>
               {[["sessions","📅 Sesi"],["alltime","🏆 Klasemen"],["stats","📊 Statistik"],["players","👥 Pemain"],["rules","📖 Aturan"]].map(([k,l]) => (
@@ -3152,7 +3141,7 @@ Hai! Ini data lanjutan sesi kita.
             {/* === PLAYERS TAB === */}
             {sessionTab === "players" && (
               <div>
-                <div style={{ background: "#FFFFFF", borderRadius: 22, padding: 16, border: "2px solid #1D3557", boxShadow: "5px 5px 0 #1D3557", marginBottom: 16 }}>
+                {!readOnly && <div style={{ background: "#FFFFFF", borderRadius: 22, padding: 16, border: "2px solid #1D3557", boxShadow: "5px 5px 0 #1D3557", marginBottom: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#101711", marginBottom: 12 }}>+ Tambah Pemain</div>
                   <input type="text" placeholder="Nama Pemain..." value={newPlayerName} onChange={e => setNewPlayerName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && onAddPlayer()}
@@ -3166,7 +3155,7 @@ Hai! Ini data lanjutan sesi kita.
                   </div>
                 </div>
 
-                {Object.keys(TIER_WEIGHT).map(tier => {
+                }{Object.keys(TIER_WEIGHT).map(tier => {
                   const tp = players.filter(p => p.tier === tier);
                   if (!tp.length) return null;
                   const c = TIER_COLORS[tier];
@@ -3191,8 +3180,8 @@ Hai! Ini data lanjutan sesi kita.
                                   )}
                                 </div>
                                 <TierBadge tier={p.tier} small />
-                                <button onClick={() => onEditPlayer(p)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Edit</button>
-                                <button onClick={() => onDeletePlayer(p.id, p.name)} style={{ background: "#FFE9EC30", border: "1px solid #E6394650", color: "#C1121F", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>
+                                {!readOnly && <button onClick={() => onEditPlayer(p)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Edit</button>}
+                                {!readOnly && <button onClick={() => onDeletePlayer(p.id, p.name)} style={{ background: "#FFE9EC30", border: "1px solid #E6394650", color: "#C1121F", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>}
                               </div>
                               {history.length > 0 && (
                                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #10171108" }}>
@@ -3250,14 +3239,14 @@ Hai! Ini data lanjutan sesi kita.
             {/* === SESSIONS TAB === */}
             {sessionTab === "sessions" && <div>
             {/* New Session Button */}
-            <button onClick={onNewSession} style={{
+            {!readOnly && <button onClick={onNewSession} style={{
               width: "100%", padding: "18px", marginBottom: 24,
               background: "#E63946",
               border: "none", borderRadius: 16, color: "#fff",
               fontWeight: 700, fontSize: 14, cursor: "pointer",
               boxShadow: "6px 6px 0 #1D3557",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            }}>✨ Mulai Sesi Baru</button>
+            }}>✨ Mulai Sesi Baru</button>}
 
             {/* Sessions list */}
             <div style={{ fontSize: 12, fontWeight: 700, color: "#70839C", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Riwayat Sesi</div>
@@ -3293,7 +3282,7 @@ Hai! Ini data lanjutan sesi kita.
                         <div style={{ fontSize: 18, fontWeight: 800, color: isActive ? "#C1121F" : "#101711", fontFamily: "'DM Mono', monospace" }}>{stats.matchCount}</div>
                         <div style={{ fontSize: 10, color: "#70839C" }}>match</div>
                       </div>
-                      {sessions.length > 1 && (
+                      {!readOnly && sessions.length > 1 && (
                         <button onClick={(e) => { e.stopPropagation(); onDeleteSession(sess.id); }} style={{ background: "#FFE9EC20", border: "2px solid #E63946", color: "#C1121F", borderRadius: 7, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>Hapus</button>
                       )}
                     </div>
@@ -3355,7 +3344,6 @@ Hai! Ini data lanjutan sesi kita.
       const [renamingId, setRenamingId] = React.useState(null);
       const [renameName, setRenameName] = React.useState("");
       const [newEmoji, setNewEmoji] = React.useState("🏸");
-      const [shareArena, setShareArena] = React.useState(null);
       const emojis = ["🏸","🎾","🏓","⚽","🏀","🏐","🥏","🎱"];
       const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : "-";
       return (
@@ -3375,7 +3363,7 @@ Hai! Ini data lanjutan sesi kita.
             <div style={{ textAlign: "center", padding: "32px 16px", background: "#FFFFFF", borderRadius: 22, border: "1px dashed #C1121F35", boxShadow: "8px 8px 0 #1D3557", marginBottom: 20 }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>👋</div>
               <div style={{ fontWeight: 600, color: "#101711", marginBottom: 6 }}>Belum ada Arena</div>
-              <div style={{ fontSize: 13, color: "#70839C" }}>Buat Arena baru untuk mulai, atau buka link handover dari teman</div>
+              <div style={{ fontSize: 13, color: "#70839C" }}>Buat Arena baru untuk mulai, atau buka link Bagikan dari teman</div>
             </div>
           )}
 
@@ -3387,16 +3375,21 @@ Hai! Ini data lanjutan sesi kita.
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 17, color: "#101711", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ws.name}</div>
                     <div style={{ fontSize: 12, color: "#5E4648", marginTop: 4, lineHeight: 1.35 }}>Update: {fmtDate(ws.updatedAt)}</div>
+                    {ws.readOnly && (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, background: "#1D355712", border: "1px solid #1D355735", color: "#1D3557", borderRadius: 999, padding: "3px 8px", fontSize: 10, fontWeight: 900 }}>
+                        🔒 Lihat saja
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => onOpen(ws)} style={{ background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 26px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "5px 5px 0 #1D3557", minWidth: 96 }}>Buka</button>
                 </div>
                 <div style={{ height: 1, background: "#10171110", marginBottom: 12 }} />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
-                  <button onClick={() => setShareArena(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
+                  <button onClick={() => onShare(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>
-                  <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>
+                <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr" : "1fr 1fr 1fr", gap: 8 }}>
+                  {!ws.readOnly && <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>}
+                  {!ws.readOnly && <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>}
                   <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E63946", color: "#C1121F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
                 </div>
               </div>
@@ -3424,19 +3417,6 @@ Hai! Ini data lanjutan sesi kita.
             </div>
           )}
 
-          {shareArena && (
-            <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 20 }} onClick={() => setShareArena(null)}>
-              <div style={{ background: "#FFFFFF", borderRadius: "24px 24px 0 0", padding: 20, width: "100%", maxWidth: 390, border: "2px solid #1D3557", boxShadow: "8px 8px 0 #1D3557" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontSize: 26, fontWeight: 700, color: "#1D3557", textTransform: "uppercase", marginBottom: 4 }}>Bagikan Arena</div>
-                <div style={{ fontSize: 13, color: "#5E4648", lineHeight: 1.45, marginBottom: 16 }}>{shareArena.name} mau dibagikan untuk siapa?</div>
-                <button onClick={() => { onShare(shareArena, "operator"); setShareArena(null); }} style={{ width: "100%", background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", marginBottom: 10, boxShadow: "4px 4px 0 #1D3557" }}>🎾 Operator Bisa Edit</button>
-                <div style={{ fontSize: 11, color: "#70839C", margin: "-4px 2px 12px", lineHeight: 1.45 }}>Untuk orang yang lanjut input skor, edit pemain, dan mengelola sesi.</div>
-                <button onClick={() => { onShare(shareArena, "viewer"); setShareArena(null); }} style={{ width: "100%", background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "14px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}>📊 Anggota Lihat Saja</button>
-                <div style={{ fontSize: 11, color: "#70839C", margin: "-4px 2px 16px", lineHeight: 1.45 }}>Untuk anggota tim yang hanya ingin melihat data lengkap, klasemen, statistik, pemain, dan skor.</div>
-                <button onClick={() => setShareArena(null)} style={{ width: "100%", padding: "12px", background: "#10171110", border: "none", borderRadius: 12, color: "#101711", fontWeight: 700, cursor: "pointer" }}>Batal</button>
-              </div>
-            </div>
-          )}
           {renamingId && (
             <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setRenamingId(null)}>
               <div style={{ background: "#FFFFFF", borderRadius: 16, padding: 20, width: "100%", maxWidth: 320, border: "2px solid #1D3557" }} onClick={e => e.stopPropagation()}>
@@ -3497,39 +3477,19 @@ Hai! Ini data lanjutan sesi kita.
       );
     }
 
-    // ===== HANDOVER MODAL =====
-    function HandoverModal({ onHandover, onClose, workspaceName, matchCount, playerCount }) {
-      return (
-        <div style={{ position: "fixed", inset: 0, background: "#000000dd", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #FFB703" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#B07D00" }}>🤝 Handover ke Operator Berikutnya</div>
-            <div style={{ fontSize: 12, color: "#5E4648", marginBottom: 20, lineHeight: 1.6 }}>
-              Kirimkan link ini ke operator berikutnya via WA.<br/>
-              Mereka tinggal buka link → data otomatis masuk sebagai Arena baru.
-            </div>
-            <div style={{ background: "#F1FAEE", border: "2px solid #FFB703", borderRadius: 22, padding: 16, boxShadow: "5px 5px 0 #1D3557", marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: "#B07D00", fontWeight: 700, marginBottom: 8 }}>📦 Yang akan dikirim:</div>
-              <div style={{ fontSize: 12, color: "#5E4648", lineHeight: 1.8 }}>
-                ✅ Arena: <strong style={{ color: "#101711" }}>{workspaceName}</strong><br/>
-                ✅ {playerCount} pemain & tier mereka<br/>
-                ✅ {matchCount} match + skor + riwayat tier<br/>
-                ✅ Sesi, klasemen harian & All Time<br/>
-                ✅ Riwayat head-to-head
-              </div>
-            </div>
-            <button onClick={onHandover} style={{ width: "100%", padding: "14px", background: "#FFB703", border: "none", borderRadius: 12, color: "#000", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
-              📤 Kirim via WA sekarang
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     const root = createRoot(document.getElementById("root"));
     root.render(<App />);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
 
 
 
