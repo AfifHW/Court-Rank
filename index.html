@@ -132,14 +132,11 @@
       };
 
       const lastGame = safeGames[safeGames.length - 1] || { t1: 0, t2: 0 };
-      const isCloseLoss = (loserScore) => [18, 19, 20].includes(loserScore);
-      const isRubber = safeGames.length === 3;
 
       // FIX: loserLastGameScore hanya relevan jika ada pemenang, bukan saat draw
       const calcS = (isWinner, isDraw, loserLastGameScore) => {
         if (isWinner) return 3;
         if (isDraw) return 1;
-        if (isRubber || isCloseLoss(loserLastGameScore)) return 1;
         return 0;
       };
 
@@ -2120,32 +2117,51 @@ Hai! Ini data lanjutan sesi kita.
       const [games, setGames] = React.useState(match.games.length > 0 ? match.games : [{ t1: 0, t2: 0 }]);
       const [team1, setTeam1] = React.useState([...match.team1]);
       const [team2, setTeam2] = React.useState([...match.team2]);
+      const playerName = (id) => players.find(p => p.id === id)?.name || "?";
+      const teamNames = (ids) => ids.map(playerName);
 
       const updateScore = (gi, team, val) => {
-        setGames(prev => prev.map((g, i) => i === gi ? { ...g, [team]: Math.max(0, parseInt(val) || 0) } : g));
+        const clean = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
+        setGames(prev => prev.map((g, i) => i === gi ? { ...g, [team]: clean } : g));
       };
+      const normalizeGames = () => games.map(g => ({ t1: parseInt(g.t1, 10) || 0, t2: parseInt(g.t2, 10) || 0 }));
       const addGame = () => setGames(prev => [...prev, { t1: 0, t2: 0 }]);
       const removeGame = (gi) => setGames(prev => prev.filter((_, i) => i !== gi));
 
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
           <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #1D3557", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: "#101711", textAlign: "center" }}>Input Skor Match</div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#101711", textAlign: "center" }}>Input Skor Match</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 34px 1fr", alignItems: "stretch", gap: 10, background: "#F1FAEE", border: "2px solid #1D3557", borderRadius: 16, padding: "10px 12px", marginBottom: 14 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: "#70839C", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>TIM A</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {teamNames(team1).map((name, idx) => <div key={idx} style={{ fontSize: 13, color: "#101711", fontWeight: 800, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>)}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#1D3557", fontWeight: 900, fontSize: 12 }}>VS</div>
+              <div style={{ minWidth: 0, textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "#70839C", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>TIM B</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
+                  {teamNames(team2).map((name, idx) => <div key={idx} style={{ fontSize: 13, color: "#101711", fontWeight: 800, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{name}</div>)}
+                </div>
+              </div>
+            </div>
             {games.map((g, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#70839C", minWidth: 44 }}>Set {i + 1}</span>
-                <input type="number" value={g.t1} onChange={e => updateScore(i, "t1", e.target.value)} style={{ flex: 1, background: "#F1FAEE", border: "1px solid #10171120", borderRadius: 14, padding: "10px", color: "#101711", fontSize: 15, textAlign: "center", outline: "none" }} />
-                <span style={{ color: "#70839C" }}>-</span>
-                <input type="number" value={g.t2} onChange={e => updateScore(i, "t2", e.target.value)} style={{ flex: 1, background: "#F1FAEE", border: "1px solid #10171120", borderRadius: 14, padding: "10px", color: "#101711", fontSize: 15, textAlign: "center", outline: "none" }} />
-                {games.length > 1 && <button onClick={() => removeGame(i)} style={{ background: "none", border: "none", color: "#E63946", cursor: "pointer", fontSize: 16 }}>✕</button>}
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "48px 78px 18px 78px 24px", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: "#70839C", textAlign: "left" }}>Set {i + 1}</span>
+                <input type="number" inputMode="numeric" value={g.t1} onFocus={e => { if (e.target.value === "0") updateScore(i, "t1", ""); }} onBlur={e => { if (e.target.value === "") updateScore(i, "t1", "0"); }} onChange={e => updateScore(i, "t1", e.target.value)} style={{ width: 78, background: "#F1FAEE", border: "2px solid #1D3557", borderRadius: 14, padding: "10px 8px", color: "#101711", fontSize: 18, fontWeight: 800, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
+                <span style={{ color: "#1D3557", fontWeight: 800, textAlign: "center" }}>-</span>
+                <input type="number" inputMode="numeric" value={g.t2} onFocus={e => { if (e.target.value === "0") updateScore(i, "t2", ""); }} onBlur={e => { if (e.target.value === "") updateScore(i, "t2", "0"); }} onChange={e => updateScore(i, "t2", e.target.value)} style={{ width: 78, background: "#F1FAEE", border: "2px solid #1D3557", borderRadius: 14, padding: "10px 8px", color: "#101711", fontSize: 18, fontWeight: 800, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
+                <div style={{ width: 24, textAlign: "center" }}>{games.length > 1 && <button onClick={() => removeGame(i)} style={{ background: "none", border: "none", color: "#E63946", cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>}</div>
               </div>
             ))}
             {games.length < 3 && (
               <button onClick={addGame} style={{ width: "100%", padding: "8px", background: "#10171108", border: "1px dashed #10171120", borderRadius: 8, color: "#5E4648", cursor: "pointer", marginBottom: 12, fontSize: 12 }}>+ Tambah Set</button>
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button onClick={() => onSubmit(games, team1, team2, false)} style={{ flex: 1, padding: "11px", background: "#FFFFFF", border: "2px solid #1D3557", borderRadius: 14, color: "#5A3A3D", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>💾 Simpan</button>
-              <button onClick={() => onSubmit(games, team1, team2, true)} style={{ flex: 1, padding: "11px", background: "#E63946", border: "none", borderRadius: 16, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>✅ Selesai</button>
+              <button onClick={() => onSubmit(normalizeGames(), team1, team2, false)} style={{ flex: 1, padding: "11px", background: "#FFFFFF", border: "2px solid #1D3557", borderRadius: 14, color: "#5A3A3D", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>💾 Simpan</button>
+              <button onClick={() => onSubmit(normalizeGames(), team1, team2, true)} style={{ flex: 1, padding: "11px", background: "#E63946", border: "none", borderRadius: 16, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>✅ Selesai</button>
             </div>
             <button onClick={onDelete} style={{ width: "100%", marginTop: 8, padding: "10px", background: "#FFE9EC20", border: "2px solid #E63946", borderRadius: 10, color: "#C1121F", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>🗑️ Hapus Match Ini</button>
           </div>
@@ -3000,7 +3016,7 @@ Hai! Ini data lanjutan sesi kita.
                 </div>
                 {[
                   { code: "TS", color: "#374151", text: "#101711", border: "#374151", label: "Total Skor (Poin Murni)", desc: "Akumulasi angka murni dari seluruh Game yang dicetak pemain." },
-                  { code: "S", color: "#1D355730", text: "#1D3557", border: "#1D355750", label: "Status Match", desc: "Menang: +3 · Seri/Draw: +1 · Kalah Ketat: +1 · Kalah Telak: 0" },
+                  { code: "S", color: "#1D355730", text: "#1D3557", border: "#1D355750", label: "Status Match", desc: "Menang: +3 · Seri/Draw: +1 · Kalah: 0" },
                   { code: "R", color: "#FFB70330", text: "#B07D00", border: "#FFB70350", label: "Subsidi Tier (Underdog)", desc: "Selisih ≥200: Menang +4, Draw/Kalah +2 · Selisih ≥50: Menang +2, Draw/Kalah +1" },
                   { code: "M", color: "#3b82f630", text: "#1D3557", border: "#3b82f650", label: "Kompensasi Absen (Harian)", desc: "+10 per match terlewat vs pemain yang main terbanyak. Hanya untuk yang check-in." },
                 ].map(item => (
@@ -3285,6 +3301,13 @@ Hai! Ini data lanjutan sesi kita.
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 
