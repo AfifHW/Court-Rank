@@ -1232,7 +1232,7 @@ Hai! Ini data lanjutan sesi kita.
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          showNotify("Backup Arena berhasil disimpan!", "success");
+          showNotify("Backup Arena berhasil dibuat!", "success");
         } catch (e) {
           console.error(e);
           showNotify("Gagal membuat file backup", "error");
@@ -1253,8 +1253,8 @@ Hai! Ini data lanjutan sesi kita.
               const data = parsed.data || parsed;
               if (!data.players || !data.matches || !data.sessions) throw new Error("Format backup tidak valid");
               setConfirmDialog({
-                title: "Pulihkan Backup",
-                message: `Pulihkan file backup ke ${ws.name}? Data Arena saat ini akan diganti oleh isi backup.`,
+                title: "Load Data",
+                message: `Load file backup ke ${ws.name}? Data Arena saat ini akan diganti oleh isi backup.`,
                 isDanger: true,
                 onConfirm: () => {
                   const cleaned = {
@@ -1273,13 +1273,13 @@ Hai! Ini data lanjutan sesi kita.
                   setWorkspaces(updated);
                   localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
                   if (workspaceId === ws.id) loadWorkspaceData(ws.id, JSON.stringify(cleaned));
-                  showNotify("Backup berhasil dipulihkan!", "success");
+                  showNotify("Data berhasil di-load!", "success");
                   setConfirmDialog(null);
                 }
               });
             } catch (e) {
               console.error(e);
-              showNotify("File backup tidak bisa dibaca", "error");
+              showNotify("File data tidak bisa dibaca", "error");
             }
           };
           reader.readAsText(file);
@@ -1457,6 +1457,8 @@ Hai! Ini data lanjutan sesi kita.
             showNotify(`${newSession.label} dimulai!`, "success");
           }}
           onBack={() => setScreen("workspace")}
+          onBackup={() => handleDownloadWorkspaceBackup(workspaces.find(w => w.id === workspaceId))}
+          onRestore={() => handleRestoreWorkspaceBackup(workspaces.find(w => w.id === workspaceId))}
           onViewStats={(p) => { setStatsPlayerId(p.id); setStatsFrom("session"); setScreen("stats"); }}
           onEditPlayer={(p) => { setEditingPlayer(p); }}
           onAddPlayer={handleAddPlayer}
@@ -2928,7 +2930,7 @@ Hai! Ini data lanjutan sesi kita.
     }
 
     // ===== SESSION SCREEN =====
-    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, onSelectSession, onNewSession, onDeleteSession, onBack, onHandover, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier }) {
+    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, onSelectSession, onNewSession, onDeleteSession, onBack, onBackup, onRestore, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier }) {
       const medals = ["🥇","🥈","🥉"];
       const [sessionTab, setSessionTab] = React.useState("sessions"); // sessions | players | rules
       const [allTimeShareBusy, setAllTimeShareBusy] = React.useState(null);
@@ -3003,9 +3005,13 @@ Hai! Ini data lanjutan sesi kita.
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <button onClick={onBack} style={{ background: "#10171110", border: "none", borderRadius: 16, padding: "8px 12px", color: "#5E4648", fontSize: 13, cursor: "pointer" }}>←</button>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: "#E63946", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{wsEmoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 24, color: "#C1121F", textTransform: "uppercase" }}>{wsName}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 24, color: "#C1121F", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{wsName}</div>
                 <div style={{ fontSize: 11, color: "#5E4648" }}>{sessions.length} sesi · {players.length} pemain · {matches.filter(m => m.status === "done").length} match</div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, minWidth: 92 }}>
+                <button title="Backup data Arena" onClick={onBackup} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Backup</button>
+                <button title="Load file backup" onClick={onRestore} style={{ background: "#FFFFFF", border: "1.5px solid #1D3557", color: "#5A3A3D", borderRadius: 11, padding: "6px 4px", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Load</button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 0 }}>
@@ -3385,13 +3391,11 @@ Hai! Ini data lanjutan sesi kita.
                   <button onClick={() => onOpen(ws)} style={{ background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 26px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "5px 5px 0 #1D3557", minWidth: 96 }}>Buka</button>
                 </div>
                 <div style={{ height: 1, background: "#10171110", marginBottom: 12 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
                   <button onClick={() => setShareArena(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
-                  <button onClick={() => onBackup(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>💾 Simpan Backup</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>
-                  <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Pulihkan</button>
                   <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>
                   <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E63946", color: "#C1121F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
                 </div>
@@ -3526,6 +3530,9 @@ Hai! Ini data lanjutan sesi kita.
   </script>
 </body>
 </html>
+
+
+
 
 
 
