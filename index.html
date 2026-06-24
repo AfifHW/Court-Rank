@@ -282,8 +282,11 @@
       document.body.appendChild(ta);
       ta.focus();
       ta.select();
-      try { document.execCommand("copy"); } catch(e) { console.error("Fallback copy gagal", e); }
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch(e) { console.error("Fallback copy gagal", e); }
       document.body.removeChild(ta);
+      if (!ok) window.prompt("Salin teks ini:", text);
+      return ok;
     }
 
     function App() {
@@ -455,8 +458,9 @@
 
         // Check URL for shared Arena data
         const params = new URLSearchParams(window.location.search);
-        const sharedDataRaw = params.get('d') || params.get('data') || '';
-        // URLSearchParams turns '+' into spaces, but LZString URI-safe payloads can contain '+'.
+        const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+        const sharedDataRaw = params.get('d') || params.get('data') || hashParams.get('d') || hashParams.get('data') || '';
+        // Some apps turn '+' into spaces; decodeURIComponent is safe for links we encode on share.
         const sharedData = sharedDataRaw.replace(/ /g, '+');
         if (sharedData && window.LZString) {
           try {
@@ -495,7 +499,7 @@
                 return;
               }
             }
-          } catch(e) { console.error("Gagal load dari link", e); }
+          } catch(e) { console.error("Gagal load dari link", e); setNotify({ msg: "Link Bagikan tidak terbaca. Coba kirim ulang dari app versi terbaru.", type: "error" }); }
         }
         setIsLoaded(true);
       }, []);
@@ -1260,34 +1264,66 @@
         showNotify("Nama Arena berhasil diganti!", "success");
       };
 
-      const handleDownloadWorkspaceBackup = (ws) => {
+      const buildWorkspaceBackupPayload = (ws) => {
+        if (!ws) throw new Error("Arena tidak ditemukan");
         const raw = localStorage.getItem(`courtRank_ws_${ws.id}`);
-        if (!raw) { showNotify("Data Arena tidak ditemukan", "error"); return; }
+        if (!raw) throw new Error("Data Arena tidak ditemukan");
+        const wsFixed = repairWorkspace(ws);
+        const backup = {
+          app: "CourtRank",
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          arena: wsFixed,
+          data: JSON.parse(raw),
+        };
+        const safeName = (wsFixed.name || "Arena").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Arena";
+        const filename = `CourtRank-Backup-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+        const file = typeof File !== "undefined" ? new File([blob], filename, { type: "application/json" }) : null;
+        return { backup, blob, file, filename, wsFixed };
+      };
+
+      const downloadBackupBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      const handleDownloadWorkspaceBackup = (ws) => {
         try {
-          const backup = {
-            app: "CourtRank",
-            version: 1,
-            exportedAt: new Date().toISOString(),
-            arena: repairWorkspace(ws),
-            data: JSON.parse(raw),
-          };
-          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          const safeName = (ws.name || "Arena").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Arena";
-          a.href = url;
-          a.download = `CourtRank-Backup-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          const { blob, filename } = buildWorkspaceBackupPayload(ws);
+          downloadBackupBlob(blob, filename);
           showNotify("Backup Arena berhasil dibuat!", "success");
         } catch (e) {
           console.error(e);
-          showNotify("Gagal membuat file backup", "error");
+          showNotify(e.message || "Gagal membuat file backup", "error");
         }
       };
 
+      const handleShareWorkspaceBackup = async (ws) => {
+        try {
+          const { blob, file, filename, wsFixed } = buildWorkspaceBackupPayload(ws);
+          const title = `Backup CourtRank ${wsFixed.name}`;
+          const text = `File backup Arena ${wsFixed.name}.\n\nCara load backup:\n1. Buka CourtRank di HP penerima.\n2. Di kartu Arena, tekan Load.\n3. Pilih file JSON ini.\n4. Data Arena akan masuk lengkap.`;
+          if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            showNotify("Pilih WhatsApp untuk mengirim file backup.", "success");
+            await navigator.share({ title, text, files: [file] });
+            showNotify("File backup siap dikirim via WA.", "success");
+            return;
+          }
+          downloadBackupBlob(blob, filename);
+          showNotify("Browser ini belum bisa kirim file langsung. File backup sudah diunduh.", "success");
+        } catch (e) {
+          if (e?.name === "AbortError") return;
+          console.error(e);
+          showNotify(e.message || "Gagal membagikan backup", "error");
+        }
+      };
       const handleRestoreWorkspaceBackup = (ws) => {
         if (ws?.readOnly) return showNotify("Arena lihat saja tidak bisa di-load backup.", "error");
         const input = document.createElement("input");
@@ -1393,18 +1429,22 @@
           };
           const compressed = window.LZString.compressToEncodedURIComponent(JSON.stringify(minified));
           const baseUrl = window.location.href.split('?')[0].split('#')[0];
-          const link = `${baseUrl}?d=${compressed}`;
+          const link = `${baseUrl}?d=${encodeURIComponent(compressed)}`;
           const doneMatches = safeMatches.filter(m => m.status === "done").length;
           const title = `Bagikan ${wsFixed.name}`;
-          const msg = `🎾 *BAGIKAN ARENA COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk melihat data lengkap atau lanjut input sebagai operator:\n🔗 ${link}`;
+          const msg = `🎾 *BAGIKAN ARENA COURTRANK — ${wsFixed.name.toUpperCase()}*\n\nData Arena lengkap:\n👥 ${safePlayers.length} pemain\n📅 ${safeSessions.length} sesi\n✅ ${doneMatches} match selesai\n\nBuka link ini untuk melihat data lengkap atau lanjut input sebagai operator.`;
           if (navigator.share) {
-            navigator.share({ title, text: msg }).catch(err => {
-              if (err.name !== "AbortError") fallbackCopy(msg);
+            showNotify("Pilih aplikasi untuk membagikan link Arena.", "success");
+            navigator.share({ title, text: msg, url: link }).then(() => showNotify("Link Bagikan siap dikirim!", "success")).catch(err => {
+              if (err.name !== "AbortError") {
+                fallbackCopy(`${msg}\nLink: ${link}`);
+                showNotify("Link Bagikan disalin.", "success");
+              }
             });
           } else if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(msg).then(() => showNotify("Link Bagikan disalin!", "success")).catch(() => fallbackCopy(msg));
+            navigator.clipboard.writeText(`${msg}\nLink: ${link}`).then(() => showNotify("Link Bagikan disalin!", "success")).catch(() => fallbackCopy(`${msg}\nLink: ${link}`));
           } else {
-            fallbackCopy(msg);
+            fallbackCopy(`${msg}\nLink: ${link}`);
             showNotify("Link Bagikan disalin!", "success");
           }
         } catch (e) {
@@ -1423,6 +1463,7 @@
           onDelete={handleDeleteWorkspace}
           onShare={handleShareWorkspace}
           onBackup={handleDownloadWorkspaceBackup}
+          onShareBackup={handleShareWorkspaceBackup}
           onRestore={handleRestoreWorkspaceBackup}
           confirmDialog={confirmDialog}
           setConfirmDialog={setConfirmDialog}
@@ -3431,7 +3472,7 @@
     }
 
     // ===== WORKSPACE SCREEN =====
-    function WorkspaceScreen({ workspaces, onOpen, onCreate, onRename, onReset, onDelete, onShare, onBackup, onRestore, confirmDialog, setConfirmDialog }) {
+    function WorkspaceScreen({ workspaces, onOpen, onCreate, onRename, onReset, onDelete, onShare, onShareBackup, onBackup, onRestore, confirmDialog, setConfirmDialog }) {
       const [creating, setCreating] = React.useState(false);
       const [newName, setNewName] = React.useState("");
       const [renamingId, setRenamingId] = React.useState(null);
@@ -3477,10 +3518,12 @@
                   <button onClick={() => onOpen(ws)} style={{ background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 26px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "5px 5px 0 #1D3557", minWidth: 96 }}>Buka</button>
                 </div>
                 <div style={{ height: 1, background: "#10171110", marginBottom: 12 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
-                  <button onClick={() => onShare(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <button onClick={() => onShare(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan Link</button>
+                  <button onClick={() => onShareBackup(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>📦 Backup WA</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr" : "1fr 1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  {!ws.readOnly && <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Load</button>}
                   {!ws.readOnly && <button onClick={() => { setRenamingId(ws.id); setRenameName(ws.name); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>✎ Rename</button>}
                   {!ws.readOnly && <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>}
                   <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E63946", color: "#C1121F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
@@ -3488,6 +3531,7 @@
               </div>
             ))}
           </div>
+
 
           {!creating ? (
             <button onClick={() => setCreating(true)} style={{ width: "100%", padding: "18px", background: "#F1FAEE", border: "2px dashed #C1121F30", borderRadius: 22, color: "#5A3A3D", fontWeight: 850, fontSize: 14, cursor: "pointer", minHeight: 104 }}>
@@ -3575,6 +3619,12 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
 
 
 
