@@ -1306,18 +1306,30 @@
       };
 
       const handleShareWorkspaceBackup = async (ws) => {
+        showNotify("Menyiapkan file backup...", "success");
         try {
           const { blob, file, filename, wsFixed } = buildWorkspaceBackupPayload(ws);
           const title = `Backup CourtRank ${wsFixed.name}`;
           const text = `File backup Arena ${wsFixed.name}.\n\nCara load backup:\n1. Buka CourtRank di HP penerima.\n2. Di kartu Arena, tekan Load.\n3. Pilih file JSON ini.\n4. Data Arena akan masuk lengkap.`;
-          if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          const waText = `${text}\n\nKalau file JSON belum otomatis terlampir, lampirkan file ${filename} dari folder Download.`;
+          if (file && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
             showNotify("Pilih WhatsApp untuk mengirim file backup.", "success");
             await navigator.share({ title, text, files: [file] });
             showNotify("File backup siap dikirim via WA.", "success");
             return;
           }
           downloadBackupBlob(blob, filename);
-          showNotify("Browser ini belum bisa kirim file langsung. File backup sudah diunduh.", "success");
+          const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+          setConfirmDialog({
+            title: "Backup Siap",
+            message: `File ${filename} sudah dibuat. Browser ini belum bisa melampirkan file otomatis, jadi WhatsApp akan dibuka dengan instruksi. Lampirkan file JSON dari folder Download saat mengirim.`,
+            isDanger: false,
+            onConfirm: () => {
+              setConfirmDialog(null);
+              window.open(waUrl, "_blank");
+            }
+          });
+          showNotify("File backup dibuat. Lanjutkan via WhatsApp.", "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           console.error(e);
@@ -3633,6 +3645,7 @@
   </script>
 </body>
 </html>
+
 
 
 
