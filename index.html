@@ -455,7 +455,9 @@
 
         // Check URL for shared Arena data
         const params = new URLSearchParams(window.location.search);
-        const sharedData = params.get('d') || params.get('data');
+        const sharedDataRaw = params.get('d') || params.get('data') || '';
+        // URLSearchParams turns '+' into spaces, but LZString URI-safe payloads can contain '+'.
+        const sharedData = sharedDataRaw.replace(/ /g, '+');
         if (sharedData && window.LZString) {
           try {
             const decompressed = window.LZString.decompressFromEncodedURIComponent(sharedData);
@@ -3573,6 +3575,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
