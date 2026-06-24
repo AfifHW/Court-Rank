@@ -3477,6 +3477,7 @@
       const [newName, setNewName] = React.useState("");
       const [renamingId, setRenamingId] = React.useState(null);
       const [renameName, setRenameName] = React.useState("");
+      const [shareMenuWs, setShareMenuWs] = React.useState(null);
       const [newEmoji, setNewEmoji] = React.useState("🏸");
       const emojis = ["🏸","🎾","🏓","⚽","🏀","🏐","🥏","🎱"];
       const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : "-";
@@ -3518,9 +3519,8 @@
                   <button onClick={() => onOpen(ws)} style={{ background: "#E63946", border: "2px solid #1D3557", color: "#fff", borderRadius: 16, padding: "14px 26px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "5px 5px 0 #1D3557", minWidth: 96 }}>Buka</button>
                 </div>
                 <div style={{ height: 1, background: "#10171110", marginBottom: 12 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                  <button onClick={() => onShare(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan Link</button>
-                  <button onClick={() => onShareBackup(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>📦 Backup WA</button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
+                  <button onClick={() => setShareMenuWs(ws)} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "11px 6px", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 8 }}>
                   {!ws.readOnly && <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#5A3A3D", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Load</button>}
@@ -3532,6 +3532,20 @@
             ))}
           </div>
 
+
+          {shareMenuWs && (
+            <div onClick={() => setShareMenuWs(null)} style={{ position: "fixed", inset: 0, background: "#10171166", zIndex: 40, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 18 }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 390, background: "#FFFFFF", border: "2px solid #1D3557", borderRadius: 24, padding: 18, boxShadow: "8px 8px 0 #1D3557" }}>
+                <div style={{ fontFamily: "'Archivo Narrow', sans-serif", fontSize: 24, fontWeight: 800, color: "#1D3557", textTransform: "uppercase", marginBottom: 4 }}>Bagikan Arena</div>
+                <div style={{ fontSize: 13, color: "#5E4648", lineHeight: 1.45, marginBottom: 14 }}>{shareMenuWs.name}</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <button onClick={() => { const ws = shareMenuWs; setShareMenuWs(null); onShare(ws); }} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "13px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", textAlign: "left" }}>↗ Bagikan Link<br /><span style={{ fontSize: 11, fontWeight: 700, color: "#5E4648" }}>Untuk buka data lewat link. Cocok kalau datanya belum terlalu besar.</span></button>
+                  <button onClick={() => { const ws = shareMenuWs; setShareMenuWs(null); onShareBackup(ws); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "13px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", textAlign: "left" }}>📦 Backup WA<br /><span style={{ fontSize: 11, fontWeight: 700, color: "#5E4648" }}>Kirim file JSON lengkap via WhatsApp. Paling aman untuk pindah HP atau backup tahunan.</span></button>
+                </div>
+                <button onClick={() => setShareMenuWs(null)} style={{ width: "100%", marginTop: 12, background: "#F1FAEE", border: "1px solid #1D355735", color: "#5A3A3D", borderRadius: 14, padding: "11px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>Batal</button>
+              </div>
+            </div>
+          )}
 
           {!creating ? (
             <button onClick={() => setCreating(true)} style={{ width: "100%", padding: "18px", background: "#F1FAEE", border: "2px dashed #C1121F30", borderRadius: 22, color: "#5A3A3D", fontWeight: 850, fontSize: 14, cursor: "pointer", minHeight: 104 }}>
@@ -3619,6 +3633,7 @@
   </script>
 </body>
 </html>
+
 
 
 
