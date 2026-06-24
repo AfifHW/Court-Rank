@@ -1290,8 +1290,10 @@
         a.download = filename;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1000);
       };
 
       const handleDownloadWorkspaceBackup = (ws) => {
@@ -1306,37 +1308,43 @@
       };
 
       const handleShareWorkspaceBackup = async (ws) => {
-        showNotify("Menyiapkan file backup...", "success");
+        showNotify("Menyiapkan Backup JSON...", "success");
         try {
           const { blob, file, filename, wsFixed } = buildWorkspaceBackupPayload(ws);
           const title = `Backup CourtRank ${wsFixed.name}`;
           const text = `File backup Arena ${wsFixed.name}.\n\nCara load backup:\n1. Buka CourtRank di HP penerima.\n2. Di kartu Arena, tekan Load.\n3. Pilih file JSON ini.\n4. Data Arena akan masuk lengkap.`;
           const waText = `${text}\n\nKalau file JSON belum otomatis terlampir, lampirkan file ${filename} dari folder Download.`;
-          if (file && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-            showNotify("Pilih WhatsApp untuk mengirim file backup.", "success");
-            await navigator.share({ title, text, files: [file] });
-            showNotify("File backup siap dikirim via WA.", "success");
-            return;
-          }
+
           downloadBackupBlob(blob, filename);
+          showNotify("File Backup JSON sudah dibuat.", "success");
+
+          if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({ title, text, files: [file] });
+              showNotify("File backup siap dikirim via WA.", "success");
+              return;
+            } catch (shareError) {
+              if (shareError?.name === "AbortError") return;
+              console.warn("Share file gagal, lanjut fallback WhatsApp", shareError);
+            }
+          }
+
           const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
           setConfirmDialog({
-            title: "Backup Siap",
-            message: `File ${filename} sudah dibuat. Browser ini belum bisa melampirkan file otomatis, jadi WhatsApp akan dibuka dengan instruksi. Lampirkan file JSON dari folder Download saat mengirim.`,
+            title: "Backup JSON Dibuat",
+            message: `File ${filename} sudah dibuat. Tekan OK untuk buka WhatsApp, lalu lampirkan file JSON dari folder Download.`,
             isDanger: false,
             onConfirm: () => {
               setConfirmDialog(null);
               window.open(waUrl, "_blank");
             }
           });
-          showNotify("File backup dibuat. Lanjutkan via WhatsApp.", "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           console.error(e);
-          showNotify(e.message || "Gagal membagikan backup", "error");
+          showNotify(e.message || "Gagal membuat Backup JSON", "error");
         }
-      };
-      const handleRestoreWorkspaceBackup = (ws) => {
+      };      const handleRestoreWorkspaceBackup = (ws) => {
         if (ws?.readOnly) return showNotify("Arena lihat saja tidak bisa di-load backup.", "error");
         const input = document.createElement("input");
         input.type = "file";
@@ -3493,6 +3501,14 @@
       const [newEmoji, setNewEmoji] = React.useState("🏸");
       const emojis = ["🏸","🎾","🏓","⚽","🏀","🏐","🥏","🎱"];
       const fmtDate = (ts) => ts ? new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : "-";
+      const runShareBackup = (ws) => {
+        setShareMenuWs(null);
+        if (typeof onShareBackup !== "function") {
+          window.alert("Fitur Backup JSON belum siap. Coba refresh halaman.");
+          return;
+        }
+        setTimeout(() => onShareBackup(ws), 0);
+      };
       return (
         <div style={{ minHeight: "100vh", background: "#F1FAEE", color: "#101711", maxWidth: 430, margin: "0 auto", padding: "24px 20px 40px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 30 }}>
@@ -3552,7 +3568,7 @@
                 <div style={{ fontSize: 13, color: "#5E4648", lineHeight: 1.45, marginBottom: 14 }}>{shareMenuWs.name}</div>
                 <div style={{ display: "grid", gap: 10 }}>
                   <button onClick={() => { const ws = shareMenuWs; setShareMenuWs(null); onShare(ws); }} style={{ background: "#FFB703", border: "2px solid #1D3557", color: "#101711", borderRadius: 16, padding: "13px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", textAlign: "left" }}>↗ Bagikan Link<br /><span style={{ fontSize: 11, fontWeight: 700, color: "#5E4648" }}>Untuk buka data lewat link. Cocok kalau datanya belum terlalu besar.</span></button>
-                  <button onClick={() => { const ws = shareMenuWs; setShareMenuWs(null); onShareBackup(ws); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "13px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", textAlign: "left" }}>📦 Backup WA<br /><span style={{ fontSize: 11, fontWeight: 700, color: "#5E4648" }}>Kirim file JSON lengkap via WhatsApp. Paling aman untuk pindah HP atau backup tahunan.</span></button>
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); runShareBackup(shareMenuWs); }} style={{ background: "#FFFFFF", border: "2px solid #1D3557", color: "#1D3557", borderRadius: 16, padding: "13px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer", textAlign: "left" }}>📦 Backup JSON / WA<br /><span style={{ fontSize: 11, fontWeight: 700, color: "#5E4648" }}>Buat file JSON lengkap, lalu bisa dikirim via WhatsApp. Paling aman untuk pindah HP atau backup tahunan.</span></button>
                 </div>
                 <button onClick={() => setShareMenuWs(null)} style={{ width: "100%", marginTop: 12, background: "#F1FAEE", border: "1px solid #1D355735", color: "#5A3A3D", borderRadius: 14, padding: "11px", fontSize: 12, fontWeight: 850, cursor: "pointer" }}>Batal</button>
               </div>
@@ -3645,6 +3661,7 @@
   </script>
 </body>
 </html>
+
 
 
 
