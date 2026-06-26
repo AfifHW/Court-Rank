@@ -1313,32 +1313,30 @@
           const { blob, file, filename, wsFixed } = buildWorkspaceBackupPayload(ws);
           const title = `Backup CourtRank ${wsFixed.name}`;
           const text = `File backup Arena ${wsFixed.name}.\n\nCara load backup:\n1. Buka CourtRank di HP penerima.\n2. Di kartu Arena, tekan Load.\n3. Pilih file JSON ini.\n4. Data Arena akan masuk lengkap.`;
-          const waText = `${text}\n\nKalau file JSON belum otomatis terlampir, lampirkan file ${filename} dari folder Download.`;
+          const canShareFile = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
 
-          downloadBackupBlob(blob, filename);
-          showNotify("File Backup JSON sudah dibuat.", "success");
-
-          if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({ title, text, files: [file] });
-              showNotify("File backup siap dikirim via WA.", "success");
-              return;
-            } catch (shareError) {
-              if (shareError?.name === "AbortError") return;
-              console.warn("Share file gagal, lanjut fallback WhatsApp", shareError);
-            }
+          if (canShareFile) {
+            showNotify("Pilih WhatsApp untuk kirim file JSON.", "success");
+            await navigator.share({ title, text, files: [file] });
+            showNotify("Backup JSON siap dikirim via WA.", "success");
+            return;
           }
 
+          downloadBackupBlob(blob, filename);
+          const waText = `${text}\n\nCatatan: browser ini belum bisa melampirkan file JSON otomatis. Lampirkan file ${filename} dari folder Download.`;
           const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
           setConfirmDialog({
-            title: "Backup JSON Dibuat",
-            message: `File ${filename} sudah dibuat. Tekan OK untuk buka WhatsApp, lalu lampirkan file JSON dari folder Download.`,
+            title: "Backup JSON Diunduh",
+            message: `Browser ini belum bisa attach file JSON otomatis ke WhatsApp. File ${filename} sudah diunduh. Tekan Buka WA, lalu lampirkan file JSON dari folder Download secara manual.`,
             isDanger: false,
+            confirmText: "Buka WA",
+            cancelText: "Tutup",
             onConfirm: () => {
               setConfirmDialog(null);
               window.open(waUrl, "_blank");
             }
           });
+          showNotify("Backup JSON diunduh. Lampirkan manual ke WA.", "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           console.error(e);
@@ -3507,7 +3505,7 @@
           window.alert("Fitur Backup JSON belum siap. Coba refresh halaman.");
           return;
         }
-        setTimeout(() => onShareBackup(ws), 0);
+        onShareBackup(ws);
       };
       return (
         <div style={{ minHeight: "100vh", background: "#F1FAEE", color: "#101711", maxWidth: 430, margin: "0 auto", padding: "24px 20px 40px" }}>
@@ -3611,11 +3609,11 @@
           {confirmDialog && (
             <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setConfirmDialog(null)}>
               <div style={{ background: "#FFFFFF", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320, border: "2px solid #1D3557", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: "#C1121F" }}>{confirmDialog.title}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: confirmDialog.isDanger ? "#C1121F" : "#101711" }}>{confirmDialog.title}</div>
                 <div style={{ fontSize: 13, color: "#5E4648", marginBottom: 24, lineHeight: 1.5 }}>{confirmDialog.message}</div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setConfirmDialog(null)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#10171110", border: "none", color: "#101711", fontWeight: 600, cursor: "pointer" }}>Batal</button>
-                  <button onClick={confirmDialog.onConfirm} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#FFE9EC", border: "1px solid #E6394645", color: "#C1121F", fontWeight: 600, cursor: "pointer" }}>Hapus</button>
+                  <button onClick={() => setConfirmDialog(null)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#10171110", border: "none", color: "#101711", fontWeight: 600, cursor: "pointer" }}>{confirmDialog.cancelText || "Batal"}</button>
+                  <button onClick={confirmDialog.onConfirm} style={{ flex: 1, padding: "12px", borderRadius: 10, background: confirmDialog.isDanger ? "#FFE9EC" : "#E63946", border: confirmDialog.isDanger ? "1px solid #E6394645" : "none", color: confirmDialog.isDanger ? "#C1121F" : "#FFFFFF", fontWeight: 600, cursor: "pointer" }}>{confirmDialog.confirmText || (confirmDialog.isDanger ? "Hapus" : "OK")}</button>
                 </div>
               </div>
             </div>
@@ -3661,6 +3659,7 @@
   </script>
 </body>
 </html>
+
 
 
 
