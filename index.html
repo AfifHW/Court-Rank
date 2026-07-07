@@ -313,7 +313,6 @@
         ["Tier", "level pemain"],
         ["P", "poin klasemen"],
         ["M", showMPlus ? "(+10) jumlah match dimainkan" : "jumlah match dimainkan"],
-        ["WDL", "W +3 · D +1 · L 0"],
         ["TS", "poin skor murni"],
         ["Diff", "selisih poin"],
         ["R", "subsidi tier"],
@@ -327,7 +326,7 @@
           <div style={{ color: "#16232E", fontWeight: 800, marginBottom: 8, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Legenda Klasemen
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "6px 10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "6px 10px" }}>
             {items.map(([label, value]) => (
               <div key={label} style={{ display: "grid", gridTemplateColumns: "48px 1fr", alignItems: "center", gap: 6, minWidth: 0 }}>
                 <span style={{
@@ -336,9 +335,20 @@
                   background: "#EDF4EA", border: "1px solid #B7C8D9",
                   color: "var(--cr-accent-blue)", fontWeight: 900, fontSize: 10,
                 }}>{label}</span>
-                <span style={{ minWidth: 0, color: "#44515E", fontSize: 11, whiteSpace: "nowrap" }}>{value}</span>
+                <span style={{ minWidth: 0, color: "#44515E", fontSize: 11 }}>{value}</span>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "48px 1fr", alignItems: "start", gap: 6, minWidth: 0 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              minHeight: 20, padding: "2px 6px", borderRadius: 7,
+              background: "#EDF4EA", border: "1px solid #B7C8D9",
+              color: "var(--cr-accent-blue)", fontWeight: 900, fontSize: 10,
+            }}>WDL</span>
+            <span style={{ minWidth: 0, color: "#44515E", fontSize: 11, lineHeight: 1.35 }}>
+              W = Win (+3) · D = Draw (+1) · L = Lose (0)
+            </span>
           </div>
           {!showMPlus && (
             <div style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid #D8E1D6", color: "#6D7F94" }}>
@@ -352,6 +362,8 @@
     const RankingTrendChart = ({ players, matches, sessions }) => {
       const [rangeMode, setRangeMode] = React.useState("5");
       const [pageFromEnd, setPageFromEnd] = React.useState(0);
+      const chartShareRef = React.useRef(null);
+      const [chartShareBusy, setChartShareBusy] = React.useState(null);
       const colors = ["#E4574F", "#F0B429", "#059669", "#3A7BD5", "#8B5CF6", "#A43D63", "#EA580C", "#16232E"];
       const chart = React.useMemo(() => {
         const sessionOrder = new Map((sessions || []).map((s, idx) => [s.id, idx]));
@@ -404,8 +416,55 @@
       const visibleLegendIds = chart.focusIds.slice(0, legendLimit);
       const hiddenLegendCount = Math.max(0, chart.focusIds.length - legendLimit);
 
+      const getChartBlob = async () => {
+        const el = chartShareRef.current;
+        if (!el || !window.html2canvas) throw new Error("Chart ranking belum siap");
+        const originalCss = el.style.cssText;
+        el.style.width = "430px";
+        el.style.maxWidth = "430px";
+        const canvas = await window.html2canvas(el, { backgroundColor: "#FAF7F2", scale: 2, useCORS: true });
+        el.style.cssText = originalCss;
+        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      };
+
+      const handleDownloadChartImage = async () => {
+        setChartShareBusy("download");
+        try {
+          const blob = await getChartBlob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "trend-ranking-top-5.jpg";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) { console.error(e); }
+        setChartShareBusy(null);
+      };
+
+      const handleShareChartWA = async () => {
+        setChartShareBusy("share");
+        try {
+          const blob = await getChartBlob();
+          const file = new File([blob], "trend-ranking-top-5.jpg", { type: "image/jpeg" });
+          let textMsg = `📈 *TREND RANKING TOP 5 COURTRANK*\n\n`;
+          textMsg += `Ranking All Time ${rangeMode === "all" ? "semua sesi" : `${visibleStartLabel} - ${visibleEndLabel}`}\n`;
+          textMsg += `Garis abu putus-putus = pemain keluar dari 5 besar pada sesi tersebut.`;
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: "Trend Ranking Top 5 CourtRank", text: textMsg, files: [file] });
+          } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(textMsg)}`, "_blank");
+          }
+        } catch (e) {
+          if (e.name !== "AbortError") console.error(e);
+        }
+        setChartShareBusy(null);
+      };
+
       return (
         <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 18, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
+          <div ref={chartShareRef} style={{ background: "#FFFFFF", borderRadius: 14, padding: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700, color: "#16232E", textTransform: "uppercase" }}>Trend Ranking Top 5</div>
@@ -450,6 +509,11 @@
             {hiddenLegendCount > 0 && <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, color: "#617181", fontSize: 11, fontWeight: 800 }}>+{hiddenLegendCount} pemain lain</div>}
           </div>
           <div style={{ marginTop: 8, fontSize: 10, color: "#617181", lineHeight: 1.35 }}>Garis abu putus-putus berarti pemain sedang keluar dari 5 besar pada sesi tersebut.</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button onClick={handleDownloadChartImage} disabled={chartShareBusy !== null} style={{ flex: 1, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 16, padding: "12px 10px", cursor: chartShareBusy !== null ? "default" : "pointer", color: "#44515E", fontWeight: 800, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{chartShareBusy === "download" ? "⏳" : "💾"} Simpan Gambar</button>
+            <button onClick={handleShareChartWA} disabled={chartShareBusy !== null} style={{ flex: 1, background: chartShareBusy === "share" ? "#778899" : "#16232E", border: "2px solid #16232E", borderRadius: 16, padding: "12px 10px", cursor: chartShareBusy !== null ? "default" : "pointer", color: "#fff", fontWeight: 800, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{chartShareBusy === "share" ? "⏳" : "💬"} Kirim WA</button>
+          </div>
         </div>
       );
     };
@@ -542,6 +606,8 @@
       const replaceNextHistoryRef = useRef(false);
       const appHistoryDepthRef = useRef(0);
       const lastAppHistoryKeyRef = useRef("");
+      const workspaceLoadedRef = useRef(false);
+      const lastSavedWorkspaceJsonRef = useRef("");
       // standingsMode removed — harian in app, alltime in session screen
 
       // ---- helpers to load/save per-workspace data ----
@@ -578,6 +644,8 @@
       const loadWorkspaceData = (wsId, dataOverride) => {
         const raw = dataOverride || localStorage.getItem(`courtRank_ws_${wsId}`);
         if (!raw) return;
+        workspaceLoadedRef.current = false;
+        lastSavedWorkspaceJsonRef.current = raw;
         try {
           const data = JSON.parse(raw);
           if (data.players) setPlayers(data.players.map(p => ({ ...p, name: repairStoredText(p.name) })));
@@ -757,15 +825,27 @@
         lastAppHistoryKeyRef.current = key;
       }, [isLoaded, buildAppHistoryState]);
 
-      // Save per-workspace + update workspace list timestamp
+      // Save per-workspace. Arena timestamp hanya naik kalau data benar-benar berubah,
+      // bukan saat arena sekadar dibuka untuk dilihat.
       useEffect(() => {
         if (!isLoaded || !workspaceId) return;
         const wsData = {
           players, matches, checkedIn: Array.from(checkedIn), checkedInBySession,
           numCourts, sessions, currentSessionId, githubGistId, readOnly
         };
-        localStorage.setItem(`courtRank_ws_${workspaceId}`, JSON.stringify(wsData));
-        // update updatedAt in workspaces list
+        const nextJson = JSON.stringify(wsData);
+        const prevJson = lastSavedWorkspaceJsonRef.current || localStorage.getItem(`courtRank_ws_${workspaceId}`) || "";
+        const dataChanged = nextJson !== prevJson;
+
+        localStorage.setItem(`courtRank_ws_${workspaceId}`, nextJson);
+        lastSavedWorkspaceJsonRef.current = nextJson;
+
+        if (!workspaceLoadedRef.current) {
+          workspaceLoadedRef.current = true;
+          return;
+        }
+        if (!dataChanged) return;
+
         setWorkspaces(prev => {
           const updated = prev.map(w => w.id === workspaceId ? { ...w, updatedAt: Date.now() } : w);
           localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
@@ -4021,6 +4101,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 
