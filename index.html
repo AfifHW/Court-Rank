@@ -3790,14 +3790,23 @@
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ background: "#FFFFFF", border: "2px solid #E4574F", borderRadius: 16, padding: 16, textAlign: "center", boxShadow: "3px 3px 0 #16232E" }}>
                   <div style={{ fontSize: 12, color: "#E4574F", fontWeight: 850, letterSpacing: "0.06em", marginBottom: 6 }}>RUMUS UTAMA KLASEMEN</div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 24, fontWeight: 800, color: "#16232E", lineHeight: 1.15 }}>P = TS + S + R + M</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap", fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 900, color: "#16232E", lineHeight: 1.2 }}>
+                    <span>P =</span>
+                    <span style={{ color: "#123A6B", background: "#D9E8FF", border: "2px solid #3A7BD5", borderRadius: 9, padding: "2px 7px" }}>TS</span>
+                    <span>+</span>
+                    <span style={{ color: "#7A1B18", background: "#FFE0DE", border: "2px solid #E4574F", borderRadius: 9, padding: "2px 7px" }}>S</span>
+                    <span>+</span>
+                    <span style={{ color: "#5A3A00", background: "#FFE1A3", border: "2px solid #9A6A00", borderRadius: 9, padding: "2px 7px" }}>R</span>
+                    <span>+</span>
+                    <span style={{ color: "#0F5132", background: "#DDF7E8", border: "2px solid #2E8B57", borderRadius: 9, padding: "2px 7px" }}>M</span>
+                  </div>
                   <div style={{ fontSize: 12, color: "#334155", marginTop: 8, fontWeight: 650 }}>M hanya berlaku di Klasemen Harian, tidak masuk All Time</div>
                 </div>
                 {[
-                  { code: "TS", color: "#16232E", text: "#FFFFFF", border: "#16232E", label: "Total Poin (Poin Murni)", points: ["Angka murni yang dicetak pemain.", "Diambil dari total poin semua set/game."] },
-                  { code: "S", color: "#16232E", text: "#FFFFFF", border: "#16232E", label: "Status Match", points: ["Menang = +3", "Seri/Draw = +1", "Kalah = 0", "Jika jumlah set imbang, total poin lebih besar tetap dihitung menang."] },
+                  { code: "TS", color: "#D9E8FF", text: "#123A6B", border: "#3A7BD5", label: "Total Poin (Poin Murni)", points: ["Angka murni yang dicetak pemain.", "Diambil dari total poin semua set/game."] },
+                  { code: "S", color: "#FFE0DE", text: "#7A1B18", border: "#E4574F", label: "Status Match", points: ["Menang = +3", "Seri/Draw = +1", "Kalah = 0", "Jika jumlah set imbang, total poin lebih besar tetap dihitung menang."] },
                   { code: "R", color: "#FFE1A3", text: "#5A3A00", border: "#9A6A00", label: "Subsidi Tier (Underdog)", points: ["Selisih tier >=200: menang +4, draw/kalah +2", "Selisih tier >=50: menang +2, draw/kalah +1", "Hanya diberikan ke tim underdog."] },
-                  { code: "M", color: "#D9E8FF", text: "#123A6B", border: "#16232E", label: "Kompensasi Absen (Harian)", points: ["+10 per match terlewat vs pemain yang paling banyak main.", "Hanya untuk pemain yang check-in di sesi itu.", "Tidak berlaku di Klasemen All Time."] },
+                  { code: "M", color: "#DDF7E8", text: "#0F5132", border: "#2E8B57", label: "Kompensasi Absen (Harian)", points: ["+10 per match terlewat vs pemain yang paling banyak main.", "Hanya untuk pemain yang check-in di sesi itu.", "Tidak berlaku di Klasemen All Time."] },
                 ].map(item => (
                   <div key={item.code} style={{ background: "#FFFFFF", borderRadius: 22, padding: 16, boxShadow: "3px 3px 0 #16232E", border: "2px solid #16232E" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -3824,6 +3833,16 @@
             {/* === SESSIONS TAB === */}
             {sessionTab === "sessions" && <div>
             {/* Sessions list */}
+            {/* New Session Button */}
+            {!readOnly && <button onClick={onNewSession} style={{
+              width: "100%", padding: "18px", marginBottom: 18,
+              background: "#E4574F",
+              border: "none", borderRadius: 16, color: "#fff",
+              fontWeight: 700, fontSize: 14, cursor: "pointer",
+              boxShadow: "3px 3px 0 #16232E",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>✨ Mulai Sesi Baru</button>}
+
             <div style={{ fontSize: 12, fontWeight: 700, color: "#617181", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Riwayat Sesi</div>
 
             {sessions.length === 0 && (
@@ -3904,15 +3923,6 @@
               );
             })}
 
-            {/* New Session Button */}
-            {!readOnly && <button onClick={onNewSession} style={{
-              width: "100%", padding: "18px", marginTop: sessions.length ? 8 : 16,
-              background: "#E4574F",
-              border: "none", borderRadius: 16, color: "#fff",
-              fontWeight: 700, fontSize: 14, cursor: "pointer",
-              boxShadow: "3px 3px 0 #16232E",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            }}>✨ Mulai Sesi Baru</button>}
             </div>}
           </div>
         </div>
@@ -4101,6 +4111,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
