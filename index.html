@@ -1401,7 +1401,7 @@
         }
 
         const sorter = focus === "tier"
-          ? ((a, b) => Math.max(0, a.pairGapWorst - 200) - Math.max(0, b.pairGapWorst - 200) || Math.max(0, a.diff - 150) - Math.max(0, b.diff - 150) || a.tierQuality - b.tierQuality || a.pairGapWorst - b.pairGapWorst || a.diff - b.diff || a.pairGapTotal - b.pairGapTotal || a.varietyPenalty - b.varietyPenalty || a.rotationScore - b.rotationScore || a.score - b.score)
+          ? ((a, b) => Math.max(0, a.pairGapWorst - 200) - Math.max(0, b.pairGapWorst - 200) || Math.max(0, a.diff - 150) - Math.max(0, b.diff - 150) || a.varietyPenalty - b.varietyPenalty || a.tierQuality - b.tierQuality || a.pairGapWorst - b.pairGapWorst || a.diff - b.diff || a.pairGapTotal - b.pairGapTotal || a.rotationScore - b.rotationScore || a.score - b.score)
           : ((a, b) => a.rotationScore - b.rotationScore || a.matchQuality - b.matchQuality || a.tierQuality - b.tierQuality || a.varietyPenalty - b.varietyPenalty || a.diff - b.diff || a.pairGapWorst - b.pairGapWorst || a.score - b.score);
 
         return balancedPool
@@ -1623,7 +1623,7 @@
             const scheduleNo = result.length + 1;
             const group = sourceGroups[idx];
             const candidates = calcBestMatches(group, court || scheduleNo, allowRelaxedShuffle, focus);
-            const pickPool = focus === "tier" ? candidates.slice(0, 1) : candidates;
+            const pickPool = focus === "tier" ? candidates.slice(0, Math.min(4, candidates.length)) : candidates;
             const candidate = pickPool.length ? pickPool[Math.floor(Math.random() * pickPool.length)] : null;
             if (!candidate) continue;
             result.push({ ...candidate, court, scheduleNo, mode: "double" });
@@ -4605,6 +4605,8 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
 
 
 
