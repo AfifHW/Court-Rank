@@ -1498,7 +1498,7 @@
         return (balancedPool.length ? balancedPool : rotationPool).slice(0, 16);
       };
 
-      const buildAutoRoundPlan = (allowRelaxedShuffle = true, focus = "rotation") => {
+      const buildAutoRoundPlan = (allowRelaxedShuffle = true, focus = "rotation", extraMatches = 0) => {
         const freeCourts = courts.filter(c => !occupiedCourts.has(c));
         const baseAvail = players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id));
         if (baseAvail.length < 4) return { error: "Auto Rounds double butuh minimal 4 pemain tersedia." };
@@ -1512,9 +1512,11 @@
         const byRepeatPriority = focus === "tier" ? byRepeatTier : byRepeatRotation;
         const planned = [];
         const usedCount = new Map(baseAvail.map(p => [p.id, 1]));
-        const totalSlots = Math.ceil(baseAvail.length / 4) * 4;
+        const baseMatchCount = Math.ceil(baseAvail.length / 4);
+        const safeExtraMatches = Math.max(0, Math.min(Number(extraMatches) || 0, Math.max(0, Math.floor(baseAvail.length / 4))));
+        const totalSlots = (baseMatchCount + safeExtraMatches) * 4;
         const repeatSlots = Math.max(0, totalSlots - baseAvail.length);
-        const repeatPlayers = [...baseAvail].sort(byRepeatPriority).slice(0, repeatSlots);
+        const repeatPlayers = [...baseAvail].sort(byRepeatPriority).slice(0, Math.min(repeatSlots, baseAvail.length));
         const schedulePool = [...baseAvail].sort(byRotation);
         repeatPlayers.forEach(p => {
           schedulePool.push(p);
@@ -1650,13 +1652,13 @@
 
         if (planned.length === 0) return { error: "Belum bisa membuat ronde dari pemain yang tersedia." };
         if (!hasPlannedCoverage(planned)) return { error: "Auto Rounds belum bisa memastikan semua pemain hadir kebagian main. Coba kocok ulang." };
-        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, repeatPlayerIds: repeatPlayers.map(p => p.id) };
+        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, extraMatches: safeExtraMatches, baseMatchCount, repeatPlayerIds: repeatPlayers.map(p => p.id) };
       };
 
-      const handleAutoRound = (focus = "rotation") => {
+      const handleAutoRound = (focus = "rotation", extraMatches = 0) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const safeFocus = focus === "tier" ? "tier" : "rotation";
-        const plan = buildAutoRoundPlan(true, safeFocus);
+        const plan = buildAutoRoundPlan(true, safeFocus, extraMatches);
         if (plan.error) { showNotify(plan.error, "error"); return; }
         setAutoRoundPreview(plan);
       };
@@ -3404,6 +3406,8 @@ const updateScore = (gi, team, val) => {
     function AutoRoundSchedulePanel({ preview, players, onShuffle, onPlay, onClose }) {
       const [minimized, setMinimized] = useState(false);
       const [locked, setLocked] = useState(false);
+      const [scheduleShareBusy, setScheduleShareBusy] = useState(null);
+      const scheduleShareRef = useRef(null);
       const getPlayer = id => players.find(p => p.id === id);
       const teamNames = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
       const items = preview?.matches || [];
@@ -3416,10 +3420,76 @@ const updateScore = (gi, team, val) => {
       const involvedCount = preview?.playerCount || new Set(items.flatMap(m => [...(m.team1 || []), ...(m.team2 || [])])).size;
       const repeatText = repeatCount > 0 ? `${repeatCount} pemain bermain 2x karena jumlah pemain tidak pas kelipatan 4.` : "Semua pemain bermain 1x.";
       const repeatNames = plannedRepeatIds.map(id => getPlayer(id)?.name).filter(Boolean).join(", ");
+      const extraMatches = preview?.extraMatches || 0;
+      const maxExtraMatches = Math.max(0, Math.floor((preview?.playerCount || involvedCount) / 4));
       const summaryText = `${involvedCount} pemain, ${items.length} match, ${repeatText}`;
-      const handleShuffle = (focus) => {
+      const handleShuffle = (focus, nextExtra = extraMatches) => {
         if (locked) return;
-        onShuffle(focus);
+        onShuffle(focus, nextExtra);
+      };
+      const handleExtraMatch = (delta) => {
+        if (locked) return;
+        const nextExtra = Math.max(0, Math.min(maxExtraMatches, extraMatches + delta));
+        if (nextExtra === extraMatches) return;
+        onShuffle(preview?.focus || "rotation", nextExtra);
+      };
+      const buildScheduleShareText = () => {
+        let text = `🔄 *AUTO ROUNDS COURTRANK*\n${summaryText}\nMode: ${preview?.focus === "tier" ? "Tier Shuffle" : "Rotation Shuffle"}\n`;
+        if (repeatNames) text += `Repeat: ${repeatNames}\n`;
+        text += `\n`;
+        items.forEach((m, idx) => {
+          text += `Match ${m.scheduleNo || idx + 1}: ${teamNames(m.team1)} vs ${teamNames(m.team2)}\n`;
+        });
+        return text.trim();
+      };
+      const getScheduleBlob = async () => {
+        const el = scheduleShareRef.current;
+        if (!el || !window.html2canvas) throw new Error("Jadwal Auto Rounds belum siap");
+        const originalCss = el.style.cssText;
+        el.style.width = "430px";
+        el.style.maxWidth = "430px";
+        const canvas = await window.html2canvas(el, { backgroundColor: "#FAF7F2", scale: 2, useCORS: true });
+        el.style.cssText = originalCss;
+        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      };
+      const handleDownloadScheduleImage = async () => {
+        setScheduleShareBusy("download");
+        try {
+          const blob = await getScheduleBlob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Auto-Rounds-CourtRank-${new Date().toISOString().slice(0, 10)}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(e);
+          alert("Gagal simpan gambar Auto Rounds.");
+        } finally {
+          setScheduleShareBusy(null);
+        }
+      };
+      const handleShareScheduleWA = async () => {
+        setScheduleShareBusy("share");
+        try {
+          const blob = await getScheduleBlob();
+          const file = new File([blob], "auto-rounds-courtrank.jpg", { type: "image/jpeg" });
+          const textMsg = buildScheduleShareText();
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: "Auto Rounds CourtRank", text: textMsg, files: [file] });
+          } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(textMsg)}`, "_blank");
+          }
+        } catch (e) {
+          if (e.name !== "AbortError") {
+            console.error(e);
+            alert("Gagal kirim Auto Rounds ke WA.");
+          }
+        } finally {
+          setScheduleShareBusy(null);
+        }
       };
       const shuffleButtonStyle = (active, accent) => ({
         minHeight: 42,
@@ -3427,14 +3497,14 @@ const updateScore = (gi, team, val) => {
         background: locked ? "#16232E10" : active ? accent : "#FFFFFF",
         border: "2px solid #16232E",
         borderRadius: 14,
-        color: locked ? "#617181" : active && accent === "#16232E" ? "#FFFFFF" : "#16232E",
+        color: locked ? "#617181" : "#16232E",
         fontWeight: 850,
         fontSize: 12,
         cursor: locked ? "not-allowed" : "pointer",
         opacity: locked ? 0.62 : 1,
       });
       return (
-        <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
+        <div ref={scheduleShareRef} style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 900, color: "#16232E" }}>🔄 Auto Rounds</div>
@@ -3448,21 +3518,35 @@ const updateScore = (gi, team, val) => {
               <button onClick={onClose} aria-label="Tutup jadwal" style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer" }}>×</button>
             </div>
           </div>
+          {!minimized && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+              <button onClick={handleDownloadScheduleImage} disabled={scheduleShareBusy !== null} style={{ minHeight: 42, padding: "10px 10px", background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 14, color: "#44515E", fontWeight: 850, fontSize: 12, cursor: scheduleShareBusy !== null ? "default" : "pointer" }}>{scheduleShareBusy === "download" ? "⏳" : "💾"} Simpan Gambar</button>
+              <button onClick={handleShareScheduleWA} disabled={scheduleShareBusy !== null} style={{ minHeight: 42, padding: "10px 10px", background: scheduleShareBusy === "share" ? "#778899" : "#16232E", border: "2px solid #16232E", borderRadius: 14, color: "#FFFFFF", fontWeight: 850, fontSize: 12, cursor: scheduleShareBusy !== null ? "default" : "pointer" }}>{scheduleShareBusy === "share" ? "⏳" : "💬"} Kirim WA</button>
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: minimized ? 0 : 12 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{involvedCount} pemain</span>
               <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{items.length} match</span>
               <span style={{ fontSize: 11, fontWeight: 750, color: "#617181", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "4px 8px" }}>Double-first</span>
-              <span style={{ fontSize: 11, fontWeight: 850, color: preview?.focus === "tier" ? "#9A6A00" : "#1F5C9E", background: preview?.focus === "tier" ? "#F0B42924" : "#3A7BD515", border: `1px solid ${preview?.focus === "tier" ? "#F0B42980" : "#3A7BD550"}`, borderRadius: 999, padding: "4px 8px" }}>{preview?.focus === "tier" ? "Fokus tier" : "Fokus rotasi"}</span>
               {locked && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Locked</span>}
               {repeatNames && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Repeat: {repeatNames}</span>}
-              {minimized && <span style={{ fontSize: 11, fontWeight: 850, color: "#617181", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "4px 8px" }}>Minimized</span>}
             </div>
             {!minimized && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <button disabled={locked} onClick={() => handleShuffle("rotation")} style={shuffleButtonStyle(preview?.focus === "rotation", "#16232E")}>🔀 Rotation Shuffle</button>
-                <button disabled={locked} onClick={() => handleShuffle("tier")} style={shuffleButtonStyle(preview?.focus === "tier", "#F0B429")}>⚖️ Tier Shuffle</button>
-              </div>
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", gap: 8, alignItems: "center" }}>
+                  <button disabled={locked || extraMatches <= 0} onClick={() => handleExtraMatch(-1)} style={{ minHeight: 40, border: "2px solid #16232E", borderRadius: 14, background: locked || extraMatches <= 0 ? "#16232E08" : "#FFFFFF", color: locked || extraMatches <= 0 ? "#8B98A5" : "#16232E", fontWeight: 900, cursor: locked || extraMatches <= 0 ? "not-allowed" : "pointer" }}>−</button>
+                  <div style={{ minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #16232E", borderRadius: 14, background: extraMatches > 0 ? "#F0B42924" : "#FFFFFF", color: "#16232E", fontSize: 12, fontWeight: 850 }}>
+                    {extraMatches > 0 ? `+${extraMatches} match ekstra` : "Match minimum"}
+                  </div>
+                  <button disabled={locked || extraMatches >= maxExtraMatches} onClick={() => handleExtraMatch(1)} style={{ minHeight: 40, border: "2px solid #16232E", borderRadius: 14, background: locked || extraMatches >= maxExtraMatches ? "#16232E08" : "#FFFFFF", color: locked || extraMatches >= maxExtraMatches ? "#8B98A5" : "#16232E", fontWeight: 900, cursor: locked || extraMatches >= maxExtraMatches ? "not-allowed" : "pointer" }}>+</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <button disabled={locked} onClick={() => handleShuffle("rotation")} style={shuffleButtonStyle(preview?.focus === "rotation", "#F0B429")}>🔀 Rotation Shuffle</button>
+                  <button disabled={locked} onClick={() => handleShuffle("tier")} style={shuffleButtonStyle(preview?.focus === "tier", "#F0B429")}>⚖️ Tier Shuffle</button>
+                </div>
+
+              </>
             )}
           </div>
           {!minimized && (
@@ -4605,6 +4689,19 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
