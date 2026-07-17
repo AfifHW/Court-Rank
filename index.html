@@ -3504,7 +3504,7 @@ const updateScore = (gi, team, val) => {
         opacity: locked ? 0.62 : 1,
       });
       return (
-        <div ref={scheduleShareRef} style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
+        <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 900, color: "#16232E" }}>🔄 Auto Rounds</div>
@@ -3550,7 +3550,7 @@ const updateScore = (gi, team, val) => {
             )}
           </div>
           {!minimized && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div ref={scheduleShareRef} style={{ display: "flex", flexDirection: "column", gap: 10, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 12, boxShadow: "3px 3px 0 #16232E" }}>
               {items.map((m, idx) => {
                 const fakeMatch = { team1: m.team1, team2: m.team2, games: [{ t1: 0, t2: 0 }], tierSnapshot: {} };
                 const repeatedInThisMatch = [...m.team1, ...m.team2].filter(id => plannedRepeatIds.includes(id));
@@ -4689,6 +4689,8 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
 
 
 
