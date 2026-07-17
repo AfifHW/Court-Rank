@@ -312,7 +312,7 @@
       const items = [
         ["Tier", "level pemain"],
         ["P", "poin klasemen"],
-        ["M", showMPlus ? "(+10) jumlah match dimainkan" : "jumlah match dimainkan"],
+        ["M", showMPlus ? "+10 poin untuk pemain yang kekurangan match" : "jumlah match"],
         ["TS", "poin skor murni"],
         ["Diff", "selisih poin"],
         ["R", "subsidi tier"],
@@ -350,11 +350,6 @@
               W = Win (+3) · D = Draw (+1) · L = Lose (0)
             </span>
           </div>
-          {!showMPlus && (
-            <div style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid #D8E1D6", color: "#6D7F94" }}>
-              <strong style={{ color: "#16232E" }}>M</strong> di Harian memberi +10 poin untuk pemain yang match-nya lebih sedikit pada sesi harian, tidak berlaku pada klasemen All Time.
-            </div>
-          )}
         </div>
       );
     };
@@ -568,13 +563,19 @@
       const [gistStatus, setGistStatus] = useState(null); // null | "saving" | "saved" | "error"
       const [showGistModal, setShowGistModal] = useState(false);
       const [smartPreview, setSmartPreview] = useState(null); // {team1, team2, court, allCandidates}
+      const [autoRoundPreview, setAutoRoundPreview] = useState(null); // {matches: [{team1, team2, court, mode}]}
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
       const [checkedInBySession, setCheckedInBySession] = useState({ s1: [1, 2, 3, 4, 5, 6, 7, 8] });
       const [numCourts, setNumCourts] = useState(3);
-      const [sessions, setSessions] = useState([{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() }]);
+      const [sessions, setSessions] = useState([{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now(), useMCompensation: true }]);
       const [currentSessionId, setCurrentSessionId] = useState("s1");
       const checkedIn = useMemo(() => new Set(checkedInBySession[currentSessionId] || []), [checkedInBySession, currentSessionId]);
+      const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId) || sessions[0] || null, [sessions, currentSessionId]);
+      const useMCompensation = currentSession?.useMCompensation !== false;
+      const setUseMCompensation = useCallback((enabled) => {
+        setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, useMCompensation: !!enabled } : s));
+      }, [currentSessionId]);
       const setCheckedIn = useCallback((next) => {
         setCheckedInBySession(prev => {
           const current = new Set(prev[currentSessionId] || []);
@@ -652,7 +653,7 @@
           if (data.matches) setMatches(data.matches);
           setCheckedInBySession(buildCheckedInBySession(data));
           if (data.numCourts) setNumCourts(data.numCourts);
-          if (data.sessions) setSessions(data.sessions);
+          if (data.sessions) setSessions(data.sessions.map(s => ({ ...s, useMCompensation: s.useMCompensation !== false })));
           if (data.currentSessionId) setCurrentSessionId(data.currentSessionId);
           if (data.githubGistId) setGithubGistId(data.githubGistId);
           else setGithubGistId("");
@@ -688,7 +689,7 @@
         // ===== MIGRASI / INISIALISASI DATA =====
         const legacyData = localStorage.getItem('courtRankState');
         if (wsList.length === 0) {
-          const defaultSession = { id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() };
+          const defaultSession = { id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now(), useMCompensation: true };
           if (legacyData) {
             // Migrasi data lama
             try {
@@ -757,7 +758,7 @@
                 const wsData = {
                   players: restoredPlayers, matches: restoredMatches,
                   checkedIn: data.c || [], checkedInBySession: data.cbs || buildCheckedInBySession({ ...data, checkedIn: data.c || [] }), numCourts: data.n || 3,
-                  sessions: data.sessions || [{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() }],
+                  sessions: (data.sessions || [{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now(), useMCompensation: true }]).map(s => ({ ...s, useMCompensation: s.useMCompensation !== false })),
                   currentSessionId: data.currentSessionId || "s1",
                   githubGistId: data.gistId || "",
                   readOnly: !!data.viewOnly,
@@ -791,6 +792,7 @@
           setScoreModal(null);
           setManualModal(false);
           setSmartPreview(null);
+          setAutoRoundPreview(null);
           setEditingPlayer(null);
           setConfirmDialog(null);
           setH2hPlayer(null);
@@ -878,8 +880,8 @@
         // Klasemen harian hanya menampilkan pemain yang hadir/check-in.
         const sessionDoneMatches = currentSessionMatches.filter(m => m.status === "done");
         const presentPlayers = players.filter(p => checkedIn.has(p.id));
-        return buildStandings(presentPlayers, sessionDoneMatches, checkedIn, true);
-      }, [players, currentSessionMatches, checkedIn]);
+        return buildStandings(presentPlayers, sessionDoneMatches, checkedIn, useMCompensation);
+      }, [players, currentSessionMatches, checkedIn, useMCompensation]);
 
       const standings = standingsHarian; // app always shows harian
 
@@ -976,6 +978,7 @@
       }, [standings]);
 
       const afkPlayer = useMemo(() => {
+        if (!useMCompensation) return null;
         const checkedInStandings = standingsHarian.filter(p => checkedIn.has(p.id));
         if (checkedInStandings.length === 0) return null;
         let minG = Infinity;
@@ -987,7 +990,7 @@
           }
         });
         return candidate;
-      }, [standings, checkedIn]);
+      }, [standingsHarian, checkedIn, useMCompensation]);
 
       const occupiedCourts = useMemo(() =>
         new Set(ongoingMatches.map(m => m.courtId)), [ongoingMatches]);
@@ -1080,6 +1083,7 @@
           label: `Sesi ${sessionNum}`,
           date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }),
           createdAt: Date.now(),
+          useMCompensation: true,
         };
         setSessions(prev => [...prev, newSession]);
         setCurrentSessionId(newSession.id);
@@ -1199,7 +1203,7 @@
       };
 
       const generateShareText = () => {
-        let textMsg = `🎾 *KLASEMEN HARIAN COURTRANK* 🎾\n\n`;
+        let textMsg = `🎾 *KLASEMEN HARIAN COURTRANK* 🎾\n${useMCompensation ? "Rumus: M aktif" : "Rumus: M mati"}\n\n`;
         if (standings.length > 0) {
           textMsg += `🏆 *WOW OF THE DAY: ${standings[0].name}*\nWinner Over Winners - performa terbaik hari ini.\n\n`;
         }
@@ -1290,24 +1294,57 @@
         }
       };
 
-      // Smart Match: prioritaskan rotasi/jumlah main, lalu pilih susunan tier yang seimbang antar tim dan tidak terlalu jomplang dalam pasangan.
-      const calcBestMatches = (avail, freeCourt, allowRelaxedShuffle = false) => {
-        const matchCount = (id) => standings.find(s => s.id === id)?.matchesPlayed || 0;
+      // Smart Match: prioritaskan pemain check-in dengan jumlah match All Time paling sedikit, lalu jumlah main sesi aktif paling sedikit, baru keseimbangan tier.
+      const calcBestMatches = (avail, freeCourt, allowRelaxedShuffle = false, focus = "rotation") => {
+        const allTimeMatchCount = (id) => matches.filter(m => [...(m.team1 || []), ...(m.team2 || [])].includes(id)).length;
+        const sessionMatchCount = (id) => currentSessionMatches.filter(m => [...(m.team1 || []), ...(m.team2 || [])].includes(id)).length;
         const pool = [...avail];
-        const allCounts = pool.map(p => matchCount(p.id));
-        const minPlayed = Math.min(...allCounts);
+        const allTimeCounts = pool.map(p => allTimeMatchCount(p.id));
+        const sessionCountsAll = pool.map(p => sessionMatchCount(p.id));
+        const minAllTimePlayed = Math.min(...allTimeCounts);
+        const minSessionPlayed = Math.min(...sessionCountsAll);
         const candidates = [];
+        const pairKey = (a, b) => [a, b].sort((x, y) => String(x).localeCompare(String(y))).join("|");
+        const partnerHistory = new Map();
+        const opponentHistory = new Map();
+        matches.filter(m => m.status === "done").forEach(m => {
+          const t1 = m.team1 || [];
+          const t2 = m.team2 || [];
+          for (let a = 0; a < t1.length; a++) for (let b = a + 1; b < t1.length; b++) {
+            const key = pairKey(t1[a], t1[b]);
+            partnerHistory.set(key, (partnerHistory.get(key) || 0) + 1);
+          }
+          for (let a = 0; a < t2.length; a++) for (let b = a + 1; b < t2.length; b++) {
+            const key = pairKey(t2[a], t2[b]);
+            partnerHistory.set(key, (partnerHistory.get(key) || 0) + 1);
+          }
+          t1.forEach(a => t2.forEach(b => {
+            const key = pairKey(a, b);
+            opponentHistory.set(key, (opponentHistory.get(key) || 0) + 1);
+          }));
+        });
+        const relationshipPenalty = (teamA, teamB) => {
+          const partnerRepeat = (partnerHistory.get(pairKey(teamA[0], teamA[1])) || 0) + (partnerHistory.get(pairKey(teamB[0], teamB[1])) || 0);
+          let opponentRepeat = 0;
+          teamA.forEach(a => teamB.forEach(b => { opponentRepeat += opponentHistory.get(pairKey(a, b)) || 0; }));
+          return (partnerRepeat * 18) + (opponentRepeat * 6);
+        };
+
 
         for (let i = 0; i < pool.length - 3; i++)
           for (let j = i + 1; j < pool.length - 2; j++)
             for (let k = j + 1; k < pool.length - 1; k++)
               for (let l = k + 1; l < pool.length; l++) {
                 const combo = [pool[i], pool[j], pool[k], pool[l]];
-                const counts = combo.map(p => matchCount(p.id));
-                const totalPlayed = counts.reduce((s, n) => s + n, 0);
-                const fatigueSpread = Math.max(...counts) - Math.min(...counts);
-                const behindCount = counts.filter(n => n === minPlayed).length;
-                const rotationScore = (totalPlayed * 100) + (fatigueSpread * 20) - (behindCount * 30);
+                const allTimeComboCounts = combo.map(p => allTimeMatchCount(p.id));
+                const sessionComboCounts = combo.map(p => sessionMatchCount(p.id));
+                const allTimeTotalPlayed = allTimeComboCounts.reduce((s, n) => s + n, 0);
+                const sessionTotalPlayed = sessionComboCounts.reduce((s, n) => s + n, 0);
+                const allTimeSpread = Math.max(...allTimeComboCounts) - Math.min(...allTimeComboCounts);
+                const sessionSpread = Math.max(...sessionComboCounts) - Math.min(...sessionComboCounts);
+                const allTimeBehindCount = allTimeComboCounts.filter(n => n === minAllTimePlayed).length;
+                const sessionBehindCount = sessionComboCounts.filter(n => n === minSessionPlayed).length;
+                const rotationScore = (allTimeTotalPlayed * 100000) + (sessionTotalPlayed * 1000) + (allTimeSpread * 200) + (sessionSpread * 50) - (allTimeBehindCount * 500) - (sessionBehindCount * 100);
 
                 [[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]].forEach(([a,b]) => {
                   const weightsA = a.map(x => TIER_WEIGHT[combo[x].tier] || TIER_WEIGHT.E);
@@ -1320,20 +1357,32 @@
                   const pairGapTotal = pairGapA + pairGapB;
                   const pairGapWorst = Math.max(pairGapA, pairGapB);
                   const extremePairPenalty = Math.max(0, pairGapWorst - 200);
-                  const tierQuality = tierDiff + (pairGapTotal * 0.45) + (pairGapWorst * 0.25) + (extremePairPenalty * 0.8);
-                  const score = (rotationScore * 1000) + tierQuality;
+                  const teamGapPenalty = Math.max(0, tierDiff - 150);
+                  const tierQuality = focus === "tier"
+                    ? (pairGapWorst * 2.5) + (pairGapTotal * 1.1) + (extremePairPenalty * 4.5) + (tierDiff * 1.8) + (teamGapPenalty * 7)
+                    : tierDiff + (pairGapTotal * 0.45) + (pairGapWorst * 0.25) + (extremePairPenalty * 0.8);
+                  const team1Ids = a.map(x => combo[x].id);
+                  const team2Ids = b.map(x => combo[x].id);
+                  const varietyPenalty = relationshipPenalty(team1Ids, team2Ids);
+                  const matchQuality = tierQuality + varietyPenalty;
+                  const score = (rotationScore * 1000) + matchQuality;
                   candidates.push({
-                    team1: a.map(x => combo[x].id),
-                    team2: b.map(x => combo[x].id),
+                    team1: team1Ids,
+                    team2: team2Ids,
                     diff: tierDiff,
                     pairGapTotal,
                     pairGapWorst,
                     tierQuality,
+                    varietyPenalty,
+                    matchQuality,
                     score,
                     rotationScore,
-                    totalPlayed,
-                    fatigueSpread,
-                    behindCount,
+                    allTimeTotalPlayed,
+                    sessionTotalPlayed,
+                    allTimeSpread,
+                    sessionSpread,
+                    allTimeBehindCount,
+                    sessionBehindCount,
                   });
                 });
               }
@@ -1341,18 +1390,22 @@
         if (candidates.length === 0) return [];
         candidates.sort((a, b) => a.rotationScore - b.rotationScore || a.diff - b.diff || a.score - b.score);
         const bestRotation = candidates[0].rotationScore;
-        const rotationLimit = allowRelaxedShuffle ? bestRotation + 100 : bestRotation;
+        const rotationLimit = allowRelaxedShuffle ? bestRotation + 1200 : bestRotation;
         const rotationPool = candidates.filter(c => c.rotationScore <= rotationLimit);
-        const bestQuality = Math.min(...rotationPool.map(c => c.tierQuality));
+        const bestQuality = Math.min(...rotationPool.map(c => c.matchQuality));
         const tierTolerance = allowRelaxedShuffle ? 120 : 0;
-        let balancedPool = rotationPool.filter(c => c.tierQuality <= bestQuality + tierTolerance);
+        let balancedPool = rotationPool.filter(c => c.matchQuality <= bestQuality + tierTolerance);
 
         if (allowRelaxedShuffle && balancedPool.length < 2) {
-          balancedPool = rotationPool.filter(c => c.tierQuality <= bestQuality + 180);
+          balancedPool = rotationPool.filter(c => c.matchQuality <= bestQuality + 180);
         }
 
+        const sorter = focus === "tier"
+          ? ((a, b) => Math.max(0, a.pairGapWorst - 200) - Math.max(0, b.pairGapWorst - 200) || Math.max(0, a.diff - 150) - Math.max(0, b.diff - 150) || a.tierQuality - b.tierQuality || a.pairGapWorst - b.pairGapWorst || a.diff - b.diff || a.pairGapTotal - b.pairGapTotal || a.varietyPenalty - b.varietyPenalty || a.rotationScore - b.rotationScore || a.score - b.score)
+          : ((a, b) => a.rotationScore - b.rotationScore || a.matchQuality - b.matchQuality || a.tierQuality - b.tierQuality || a.varietyPenalty - b.varietyPenalty || a.diff - b.diff || a.pairGapWorst - b.pairGapWorst || a.score - b.score);
+
         return balancedPool
-          .sort((a, b) => a.rotationScore - b.rotationScore || a.tierQuality - b.tierQuality || a.diff - b.diff || a.pairGapWorst - b.pairGapWorst || a.score - b.score)
+          .sort(sorter)
           .slice(0, Math.min(16, balancedPool.length));
       };
 
@@ -1407,6 +1460,241 @@
         showNotify(`Match dibuat di Lapangan ${freeCourt}!`);
       };
 
+      const calcBestSingles = (avail, freeCourt, allowRelaxedShuffle = false) => {
+        const matchHasPlayer = (m, id) => [...(m.team1 || []), ...(m.team2 || [])].includes(id);
+        const allTimeMatchCount = (id) => matches.filter(m => m.status === "done" && matchHasPlayer(m, id)).length;
+        const sessionMatchCount = (id) => currentSessionMatches.filter(m => (m.status === "done" || m.status === "ongoing") && matchHasPlayer(m, id)).length;
+        const pairKey = (a, b) => [a, b].sort((x, y) => String(x).localeCompare(String(y))).join("|");
+        const opponentHistory = new Map();
+        matches.filter(m => m.status === "done").forEach(m => {
+          const t1 = m.team1 || [];
+          const t2 = m.team2 || [];
+          t1.forEach(a => t2.forEach(b => {
+            const key = pairKey(a, b);
+            opponentHistory.set(key, (opponentHistory.get(key) || 0) + 1);
+          }));
+        });
+        const candidates = [];
+        for (let i = 0; i < avail.length - 1; i++) {
+          for (let j = i + 1; j < avail.length; j++) {
+            const p1 = avail[i];
+            const p2 = avail[j];
+            const allTimeTotalPlayed = allTimeMatchCount(p1.id) + allTimeMatchCount(p2.id);
+            const sessionTotalPlayed = sessionMatchCount(p1.id) + sessionMatchCount(p2.id);
+            const tierDiff = Math.abs((TIER_WEIGHT[p1.tier] || TIER_WEIGHT.E) - (TIER_WEIGHT[p2.tier] || TIER_WEIGHT.E));
+            const repeatPenalty = (opponentHistory.get(pairKey(p1.id, p2.id)) || 0) * 10;
+            const rotationScore = (allTimeTotalPlayed * 100000) + (sessionTotalPlayed * 1000);
+            const matchQuality = tierDiff + repeatPenalty;
+            candidates.push({ team1: [p1.id], team2: [p2.id], diff: tierDiff, tierQuality: tierDiff, varietyPenalty: repeatPenalty, matchQuality, rotationScore, score: (rotationScore * 1000) + matchQuality, court: freeCourt, mode: "single" });
+          }
+        }
+        if (candidates.length === 0) return [];
+        candidates.sort((a, b) => a.rotationScore - b.rotationScore || a.matchQuality - b.matchQuality || a.score - b.score);
+        const bestRotation = candidates[0].rotationScore;
+        const rotationLimit = allowRelaxedShuffle ? bestRotation + 1200 : bestRotation;
+        const rotationPool = candidates.filter(c => c.rotationScore <= rotationLimit);
+        const bestQuality = Math.min(...rotationPool.map(c => c.matchQuality));
+        const balancedPool = rotationPool.filter(c => c.matchQuality <= bestQuality + (allowRelaxedShuffle ? 160 : 0));
+        return (balancedPool.length ? balancedPool : rotationPool).slice(0, 16);
+      };
+
+      const buildAutoRoundPlan = (allowRelaxedShuffle = true, focus = "rotation") => {
+        const freeCourts = courts.filter(c => !occupiedCourts.has(c));
+        const baseAvail = players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id));
+        if (baseAvail.length < 4) return { error: "Auto Rounds double butuh minimal 4 pemain tersedia." };
+        const matchHasPlayer = (m, id) => [...(m.team1 || []), ...(m.team2 || [])].includes(id);
+        const allTimeMatchCount = (id) => matches.filter(m => m.status === "done" && matchHasPlayer(m, id)).length;
+        const sessionMatchCount = (id) => currentSessionMatches.filter(m => (m.status === "done" || m.status === "ongoing") && matchHasPlayer(m, id)).length;
+        const rotationLoad = (id) => allTimeMatchCount(id) + sessionMatchCount(id);
+        const byRotation = (a, b) => rotationLoad(a.id) - rotationLoad(b.id) || allTimeMatchCount(a.id) - allTimeMatchCount(b.id) || sessionMatchCount(a.id) - sessionMatchCount(b.id) || (TIER_WEIGHT[a.tier] || 0) - (TIER_WEIGHT[b.tier] || 0) || String(a.name).localeCompare(String(b.name));
+        const byRepeatRotation = (a, b) => rotationLoad(a.id) - rotationLoad(b.id) || allTimeMatchCount(a.id) - allTimeMatchCount(b.id) || sessionMatchCount(a.id) - sessionMatchCount(b.id) || String(a.name).localeCompare(String(b.name));
+        const byRepeatTier = (a, b) => allTimeMatchCount(a.id) - allTimeMatchCount(b.id) || sessionMatchCount(a.id) - sessionMatchCount(b.id) || String(a.name).localeCompare(String(b.name));
+        const byRepeatPriority = focus === "tier" ? byRepeatTier : byRepeatRotation;
+        const planned = [];
+        const usedCount = new Map(baseAvail.map(p => [p.id, 1]));
+        const totalSlots = Math.ceil(baseAvail.length / 4) * 4;
+        const repeatSlots = Math.max(0, totalSlots - baseAvail.length);
+        const repeatPlayers = [...baseAvail].sort(byRepeatPriority).slice(0, repeatSlots);
+        const schedulePool = [...baseAvail].sort(byRotation);
+        repeatPlayers.forEach(p => {
+          schedulePool.push(p);
+          usedCount.set(p.id, (usedCount.get(p.id) || 0) + 1);
+        });
+
+        const makeGroups = (pool) => {
+          const groups = [];
+          for (let start = 0; start < pool.length; start += 4) {
+            const group = pool.slice(start, start + 4);
+            if (group.length === 4) groups.push(group);
+          }
+          return groups;
+        };
+        const hasDuplicateInGroup = (group) => new Set(group.map(p => p.id)).size !== group.length;
+        const shuffleCopy = (arr) => {
+          const copy = [...arr];
+          for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          return copy;
+        };
+        const scoreGroups = (groups) => {
+          let total = 0;
+          let worstDiff = 0;
+          let worstPairGap = 0;
+          for (let idx = 0; idx < groups.length; idx++) {
+            const group = groups[idx];
+            if (hasDuplicateInGroup(group)) return Infinity;
+            const best = calcBestMatches(group, idx + 1, allowRelaxedShuffle, "tier")[0];
+            if (!best) return Infinity;
+            worstDiff = Math.max(worstDiff, best.diff || 0);
+            worstPairGap = Math.max(worstPairGap, best.pairGapWorst || 0);
+            total += ((best.pairGapWorst || 0) * 3600) + ((best.pairGapTotal || 0) * 1100) + (Math.max(0, (best.pairGapWorst || 0) - 200) * 8500) + ((best.diff || 0) * 2600) + (Math.max(0, (best.diff || 0) - 150) * 9000) + ((best.tierQuality || 0) * 18) + ((best.varietyPenalty || 0) * 8) + ((best.rotationScore || 0) / 1000000);
+          }
+          return total + (worstPairGap * 5200) + (Math.max(0, worstPairGap - 200) * 9000) + (worstDiff * 5200) + (Math.max(0, worstDiff - 150) * 11000);
+        };
+        const tierSeedPool = () => {
+          const groupCount = Math.max(1, Math.ceil(schedulePool.length / 4));
+          const groups = Array.from({ length: groupCount }, () => []);
+          const sorted = [...schedulePool].sort((a, b) => (TIER_WEIGHT[b.tier] || 0) - (TIER_WEIGHT[a.tier] || 0) || byRotation(a, b));
+          sorted.forEach((p, idx) => {
+            const cycle = Math.floor(idx / groupCount);
+            const pos = idx % groupCount;
+            const target = cycle % 2 === 0 ? pos : groupCount - 1 - pos;
+            groups[target].push(p);
+          });
+          return groups.flat();
+        };
+
+        let finalPool = schedulePool;
+        if (focus === "tier") {
+          let bestPool = tierSeedPool();
+          let bestScore = scoreGroups(makeGroups(bestPool));
+          const candidatePools = [schedulePool, [...schedulePool].reverse(), tierSeedPool()];
+          candidatePools.forEach(pool => {
+            const poolScore = scoreGroups(makeGroups(pool));
+            if (poolScore < bestScore) {
+              bestScore = poolScore;
+              bestPool = pool;
+            }
+          });
+          for (let i = 0; i < 2200; i++) {
+            const trial = shuffleCopy(schedulePool);
+            const trialScore = scoreGroups(makeGroups(trial));
+            if (trialScore < bestScore) {
+              bestScore = trialScore;
+              bestPool = trial;
+            }
+          }
+          for (let i = 0; i < 500; i++) {
+            const trial = [...bestPool];
+            const a = Math.floor(Math.random() * trial.length);
+            let b = Math.floor(Math.random() * trial.length);
+            if (a === b) b = (b + 1) % trial.length;
+            [trial[a], trial[b]] = [trial[b], trial[a]];
+            const trialScore = scoreGroups(makeGroups(trial));
+            if (trialScore <= bestScore) {
+              bestScore = trialScore;
+              bestPool = trial;
+            }
+          }
+          finalPool = bestPool;
+        }
+
+        const repeatTarget = new Map(baseAvail.map(p => [p.id, 1]));
+        repeatPlayers.forEach(p => repeatTarget.set(p.id, (repeatTarget.get(p.id) || 1) + 1));
+        const countPoolIds = (pool) => pool.reduce((acc, p) => {
+          acc.set(p.id, (acc.get(p.id) || 0) + 1);
+          return acc;
+        }, new Map());
+        const hasFullCoverage = (pool) => {
+          const counts = countPoolIds(pool);
+          return baseAvail.every(p => (counts.get(p.id) || 0) >= 1) && repeatPlayers.every(p => (counts.get(p.id) || 0) >= (repeatTarget.get(p.id) || 1));
+        };
+        if (!hasFullCoverage(finalPool) || scoreGroups(makeGroups(finalPool)) === Infinity) {
+          finalPool = schedulePool;
+        }
+
+        const makePlannedFromPool = (pool) => {
+          const result = [];
+          const sourceGroups = makeGroups(pool);
+          for (let idx = 0; idx < sourceGroups.length; idx++) {
+            const court = freeCourts[result.length] || null;
+            const scheduleNo = result.length + 1;
+            const group = sourceGroups[idx];
+            const candidates = calcBestMatches(group, court || scheduleNo, allowRelaxedShuffle, focus);
+            const pickPool = focus === "tier" ? candidates.slice(0, 1) : candidates;
+            const candidate = pickPool.length ? pickPool[Math.floor(Math.random() * pickPool.length)] : null;
+            if (!candidate) continue;
+            result.push({ ...candidate, court, scheduleNo, mode: "double" });
+          }
+          return result;
+        };
+
+        let safePlanned = makePlannedFromPool(finalPool);
+        const plannedCounts = (items) => items.flatMap(m => [...(m.team1 || []), ...(m.team2 || [])]).reduce((acc, id) => {
+          acc.set(id, (acc.get(id) || 0) + 1);
+          return acc;
+        }, new Map());
+        const hasPlannedCoverage = (items) => {
+          const counts = plannedCounts(items);
+          return baseAvail.every(p => (counts.get(p.id) || 0) >= 1) && repeatPlayers.every(p => (counts.get(p.id) || 0) >= (repeatTarget.get(p.id) || 1));
+        };
+        if (!hasPlannedCoverage(safePlanned)) {
+          safePlanned = makePlannedFromPool(schedulePool);
+        }
+        safePlanned.forEach(match => {
+          [...(match.team1 || []), ...(match.team2 || [])].forEach(id => usedCount.set(id, (usedCount.get(id) || 0) + 1));
+          planned.push(match);
+        });
+
+        if (planned.length === 0) return { error: "Belum bisa membuat ronde dari pemain yang tersedia." };
+        if (!hasPlannedCoverage(planned)) return { error: "Auto Rounds belum bisa memastikan semua pemain hadir kebagian main. Coba kocok ulang." };
+        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, repeatPlayerIds: repeatPlayers.map(p => p.id) };
+      };
+
+      const handleAutoRound = (focus = "rotation") => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
+        const safeFocus = focus === "tier" ? "tier" : "rotation";
+        const plan = buildAutoRoundPlan(true, safeFocus);
+        if (plan.error) { showNotify(plan.error, "error"); return; }
+        setAutoRoundPreview(plan);
+      };
+
+      const handlePlayAutoRoundMatch = (plannedMatch) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
+        if (!plannedMatch) return;
+        const ids = [...(plannedMatch.team1 || []), ...(plannedMatch.team2 || [])];
+        const busyNames = ids.filter(id => activePlayers.has(id)).map(id => players.find(p => p.id === id)?.name || "?");
+        if (busyNames.length > 0) {
+          showNotify(`${busyNames.join(", ")} masih bermain. Tunggu match sebelumnya selesai dulu.`, "error");
+          return;
+        }
+        const freeCourt = courts.find(c => !occupiedCourts.has(c));
+        if (!freeCourt) {
+          showNotify("Belum ada lapangan kosong untuk memainkan jadwal ini.", "error");
+          return;
+        }
+        const tierSnapshot = {};
+        players.forEach(p => { tierSnapshot[p.id] = p.tier; });
+        const newMatch = {
+          id: `m${Date.now()}_${plannedMatch.scheduleNo || 1}`,
+          courtId: freeCourt,
+          status: "ongoing",
+          team1: plannedMatch.team1,
+          team2: plannedMatch.team2,
+          games: [{ t1: 0, t2: 0 }],
+          sessionId: currentSessionId,
+          tierSnapshot,
+        };
+        setMatches(prev => [...prev, newMatch]);
+        setAutoRoundPreview(prev => {
+          if (!prev) return null;
+          const nextMatches = (prev.matches || []).filter(m => m.scheduleNo !== plannedMatch.scheduleNo);
+          return nextMatches.length ? { ...prev, matches: nextMatches } : null;
+        });
+        showNotify(`Match ${plannedMatch.scheduleNo || "jadwal"} masuk ke Lapangan ${freeCourt}.`, "success");
+      };
       const handleManualMatch = () => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         if (manualSelected.length !== 2 && manualSelected.length !== 4) {
@@ -1504,7 +1792,7 @@
         const newWs = { id: newId, name, emoji, updatedAt: Date.now() };
         const initData = {
           players: [], matches: [], checkedIn: [], checkedInBySession: { s1: [] }, numCourts: 3,
-          sessions: [{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() }],
+          sessions: [{ id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now(), useMCompensation: true }],
           currentSessionId: "s1", githubGistId: "",
         };
         localStorage.setItem(`courtRank_ws_${newId}`, JSON.stringify(initData));
@@ -1540,7 +1828,7 @@
           message: `Yakin ingin mereset ${ws?.name || "Arena ini"}? Semua pemain, sesi, match, daftar hadir, dan klasemen di Arena ini akan dikosongkan. Nama Arena tetap dipertahankan.`,
           isDanger: true,
           onConfirm: () => {
-            const freshSession = { id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now() };
+            const freshSession = { id: "s1", label: "Sesi 1", date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }), createdAt: Date.now(), useMCompensation: true };
             const freshData = {
               players: [], matches: [], checkedIn: [], checkedInBySession: { s1: [] }, numCourts: 3,
               sessions: [freshSession], currentSessionId: "s1", githubGistId: "", readOnly: false,
@@ -1675,7 +1963,7 @@
                     checkedIn: data.checkedIn || [],
                     checkedInBySession: buildCheckedInBySession(data),
                     numCourts: data.numCourts || 3,
-                    sessions: data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now() }],
+                    sessions: (data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now(), useMCompensation: true }]).map(s => ({ ...s, useMCompensation: s.useMCompensation !== false })),
                     currentSessionId: data.currentSessionId || data.sessions?.[0]?.id || "s1",
                     githubGistId: "",
                     readOnly: false,
@@ -1740,7 +2028,7 @@
           const data = JSON.parse(raw);
           const safePlayers = (data.players || []).map(p => ({ ...p, name: repairStoredText(p.name) || p.name }));
           const safeMatches = data.matches || [];
-          const safeSessions = data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now() }];
+          const safeSessions = (data.sessions || [{ id: "s1", label: "Sesi 1", date: "", createdAt: Date.now(), useMCompensation: true }]).map(s => ({ ...s, useMCompensation: s.useMCompensation !== false }));
           const wsFixed = repairWorkspace(ws);
           const minified = {
             p: safePlayers.map(p => [p.id, p.name, p.tier]),
@@ -1870,6 +2158,7 @@
               label: `Sesi ${sessionNum}`,
               date: new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }),
               createdAt: Date.now(),
+              useMCompensation: true,
             };
             setSessions(prev => [...prev, newSession]);
             setCurrentSessionId(newSession.id);
@@ -2027,21 +2316,35 @@
                 {readOnly ? (
                   <div style={{ background: "#16232E12", border: "2px solid #16232E", borderRadius: 16, padding: "12px 14px", color: "#16232E", fontSize: 12, fontWeight: 750, textAlign: "center" }}>Mode lihat saja · input dan edit data dinonaktifkan</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <button onClick={handleSmartMatch} style={{
-                      minHeight: 52, padding: "14px 12px", background: "var(--cr-primary)",
-                      border: "2px solid var(--cr-primary)", borderRadius: 18, color: "#fff", fontWeight: 850, cursor: "pointer", fontSize: 14, boxShadow: "0 12px 24px rgba(228, 87, 79,0.20)",
-                    }}>⚡ Smart Match</button>
+                      minHeight: 52, padding: "14px 12px", background: "var(--cr-surface)",
+                      border: "2px solid var(--cr-line)", borderRadius: 18, color: "var(--cr-primary)", fontWeight: 900, cursor: "pointer", fontSize: 14, boxShadow: "3px 3px 0 #E4574F",
+                    }}>⚡ Quick Match</button>
+                    <button onClick={() => handleAutoRound("rotation")} style={{
+                      minHeight: 52, padding: "14px 12px", background: "var(--cr-surface)",
+                      border: "2px solid var(--cr-line)", borderRadius: 18, color: "var(--cr-ink)", fontWeight: 900, cursor: "pointer", fontSize: 14, boxShadow: "3px 3px 0 #F0B429",
+                    }}>🔄 Auto Rounds</button>
                     <button onClick={() => {
                       setManualCourt(courts.find(c => !occupiedCourts.has(c)) || 1);
                       setManualModal(true);
                     }} style={{
-                      minHeight: 52, padding: "14px 12px", background: "var(--cr-surface)", border: "2px solid var(--cr-line)",
-                      borderRadius: 18, color: "var(--cr-ink)", fontWeight: 750, cursor: "pointer", fontSize: 14,
+                      gridColumn: "1 / -1", minHeight: 48, padding: "12px", background: "var(--cr-surface)", border: "2px solid var(--cr-line)",
+                      borderRadius: 18, color: "var(--cr-ink)", fontWeight: 850, cursor: "pointer", fontSize: 14, boxShadow: "3px 3px 0 #16232E",
                     }}>🎯 Manual</button>
                   </div>
                 )}
 
+
+                {!readOnly && autoRoundPreview && (
+                  <AutoRoundSchedulePanel
+                    preview={autoRoundPreview}
+                    players={players}
+                    onShuffle={handleAutoRound}
+                    onPlay={handlePlayAutoRoundMatch}
+                    onClose={() => setAutoRoundPreview(null)}
+                  />
+                )}
                 <div style={{ fontSize: 12, color: "#617181", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Lapangan Aktif
                 </div>
@@ -2068,6 +2371,7 @@
                           match={activeMatch}
                           players={players}
                           onScore={readOnly ? null : handleUpdateOngoingScore}
+                          onEdit={readOnly ? null : () => setScoreModal(activeMatch)}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: "#617181", lineHeight: 1.5 }}>
@@ -2198,7 +2502,7 @@
                           </tbody>
                         </table>
                       </div>
-                      <StandingsLegend showMPlus />
+                      <StandingsLegend showMPlus={useMCompensation} />
                     </div>
                   )}
                 </div>
@@ -2336,6 +2640,25 @@
                     })}
                   </div>
                 </div>
+
+                {/* Kompensasi M */}
+                <div style={{ background: "#FFFFFF", borderRadius: 14, padding: "10px 12px", border: `1.5px solid ${useMCompensation ? "#2E8B57" : "#16232E30"}`, boxShadow: "2px 2px 0 #16232E", marginTop: -4 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                        <span style={{ width: 24, height: 24, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", background: useMCompensation ? "#DDF7E8" : "#16232E10", color: useMCompensation ? "#0F5132" : "#44515E", border: `1px solid ${useMCompensation ? "#2E8B5740" : "#16232E20"}`, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 900 }}>M</span>
+                        <span style={{ fontSize: 12, fontWeight: 850, color: "#16232E", letterSpacing: "0.03em", textTransform: "uppercase" }}>Kompensasi Harian</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#617181", lineHeight: 1.35 }}>
+                        {useMCompensation ? "+10 poin untuk pemain yang match-nya lebih sedikit." : "Tidak dipakai di sesi ini."}
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setUseMCompensation(!useMCompensation)} aria-pressed={useMCompensation} style={{ flex: "0 0 auto", width: 52, minHeight: 34, borderRadius: 999, border: `2px solid ${useMCompensation ? "#2E8B57" : "#16232E"}`, background: useMCompensation ? "#2E8B57" : "#FFFFFF", padding: 3, cursor: "pointer", boxShadow: "1.5px 1.5px 0 #16232E", transition: "all 0.18s ease-in-out" }}>
+                      <span style={{ display: "block", width: 24, height: 24, borderRadius: 999, background: "#FFFFFF", transform: useMCompensation ? "translateX(18px)" : "translateX(0)", transition: "transform 0.18s ease-in-out", boxShadow: "1px 1px 0 #16232E" }} />
+                    </button>
+                  </div>
+                </div>
+
 
                 {/* Reset Danger Zone */}
                 <div style={{ marginTop: 8, paddingTop: 16, borderTop: "1px dashed #16232E15", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2669,7 +2992,7 @@
       );
     }
 
-    function MatchCard({ match, players, onScore }) {
+    function MatchCard({ match, players, onScore, onEdit }) {
       const getPlayer = id => players.find(p => p.id === id);
       const teamNames = (ids) => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
       const canEdit = Boolean(onScore);
@@ -2705,6 +3028,7 @@
       const totals = normalizeGames().reduce((acc,g)=>({ t1: acc.t1 + g.t1, t2: acc.t2 + g.t2 }), { t1: 0, t2: 0 });
       return (
         <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>{canEdit && onEdit && <button onClick={onEdit} style={{ minHeight: 34, padding: "7px 10px", background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontWeight: 850, fontSize: 11, cursor: "pointer" }}>✎ Edit Pemain</button>}</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div style={{ textAlign: "center", flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#16232E", marginBottom: 2 }}>{teamNames(match.team1)}</div>
@@ -2784,7 +3108,16 @@
       const playerName = (id) => players.find(p => p.id === id)?.name || "?";
       const teamNames = (ids) => ids.map(playerName);
 
-      const updateScore = (gi, team, val) => {
+      const updatePlayerSlot = (side, idx, value) => {
+        const id = Number(value);
+        const allSlots = [...team1, ...team2];
+        const slotIndex = side === "team1" ? idx : team1.length + idx;
+        const duplicate = allSlots.some((pid, i) => i !== slotIndex && pid === id);
+        if (duplicate) return;
+        if (side === "team1") setTeam1(prev => prev.map((x, i) => i === idx ? id : x));
+        else setTeam2(prev => prev.map((x, i) => i === idx ? id : x));
+      };
+const updateScore = (gi, team, val) => {
         const clean = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
         setGames(prev => prev.map((g, i) => i === gi ? { ...g, [team]: clean } : g));
       };
@@ -2809,6 +3142,22 @@
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
                   {teamNames(team2).map((name, idx) => <div key={idx} style={{ fontSize: 13, color: "#16232E", fontWeight: 800, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{name}</div>)}
                 </div>
+              </div>
+            </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {team1.map((id, idx) => (
+                  <select key={`t1-${idx}`} value={id} onChange={e => updatePlayerSlot("team1", idx, e.target.value)} style={{ width: "100%", minHeight: 40, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontSize: 12, fontWeight: 800, padding: "8px", outline: "none" }}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name} · {p.tier}</option>)}
+                  </select>
+                ))}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {team2.map((id, idx) => (
+                  <select key={`t2-${idx}`} value={id} onChange={e => updatePlayerSlot("team2", idx, e.target.value)} style={{ width: "100%", minHeight: 40, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontSize: 12, fontWeight: 800, padding: "8px", outline: "none" }}>
+                    {players.map(p => <option key={p.id} value={p.id}>{p.name} · {p.tier}</option>)}
+                  </select>
+                ))}
               </div>
             </div>
             {games.map((g, i) => (
@@ -3052,6 +3401,144 @@
       );
     }
 
+    function AutoRoundSchedulePanel({ preview, players, onShuffle, onPlay, onClose }) {
+      const [minimized, setMinimized] = useState(false);
+      const [locked, setLocked] = useState(false);
+      const getPlayer = id => players.find(p => p.id === id);
+      const teamNames = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
+      const items = preview?.matches || [];
+      const repeatedIds = items.flatMap(m => [...(m.team1 || []), ...(m.team2 || [])]).reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+      }, {});
+      const plannedRepeatIds = preview?.repeatPlayerIds || Object.keys(repeatedIds).filter(id => repeatedIds[id] > 1).map(id => Number(id));
+      const repeatCount = plannedRepeatIds.length;
+      const involvedCount = preview?.playerCount || new Set(items.flatMap(m => [...(m.team1 || []), ...(m.team2 || [])])).size;
+      const repeatText = repeatCount > 0 ? `${repeatCount} pemain bermain 2x karena jumlah pemain tidak pas kelipatan 4.` : "Semua pemain bermain 1x.";
+      const repeatNames = plannedRepeatIds.map(id => getPlayer(id)?.name).filter(Boolean).join(", ");
+      const summaryText = `${involvedCount} pemain, ${items.length} match, ${repeatText}`;
+      const handleShuffle = (focus) => {
+        if (locked) return;
+        onShuffle(focus);
+      };
+      const shuffleButtonStyle = (active, accent) => ({
+        minHeight: 42,
+        padding: "9px 10px",
+        background: locked ? "#16232E10" : active ? accent : "#FFFFFF",
+        border: "2px solid #16232E",
+        borderRadius: 14,
+        color: locked ? "#617181" : active && accent === "#16232E" ? "#FFFFFF" : "#16232E",
+        fontWeight: 850,
+        fontSize: 12,
+        cursor: locked ? "not-allowed" : "pointer",
+        opacity: locked ? 0.62 : 1,
+      });
+      return (
+        <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 900, color: "#16232E" }}>🔄 Auto Rounds</div>
+              <div style={{ fontSize: 12, color: "#617181", marginTop: 2, lineHeight: 1.35 }}>
+                {summaryText}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setLocked(v => !v)} aria-label={locked ? "Unlock jadwal" : "Lock jadwal"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: locked ? "#F0B42935" : "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{locked ? "🔒" : "🔓"}</button>
+              <button onClick={() => setMinimized(v => !v)} aria-label={minimized ? "Buka Auto Rounds" : "Minimize Auto Rounds"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{minimized ? "▾" : "▴"}</button>
+              <button onClick={onClose} aria-label="Tutup jadwal" style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer" }}>×</button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: minimized ? 0 : 12 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{involvedCount} pemain</span>
+              <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{items.length} match</span>
+              <span style={{ fontSize: 11, fontWeight: 750, color: "#617181", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "4px 8px" }}>Double-first</span>
+              <span style={{ fontSize: 11, fontWeight: 850, color: preview?.focus === "tier" ? "#9A6A00" : "#1F5C9E", background: preview?.focus === "tier" ? "#F0B42924" : "#3A7BD515", border: `1px solid ${preview?.focus === "tier" ? "#F0B42980" : "#3A7BD550"}`, borderRadius: 999, padding: "4px 8px" }}>{preview?.focus === "tier" ? "Fokus tier" : "Fokus rotasi"}</span>
+              {locked && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Locked</span>}
+              {repeatNames && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Repeat: {repeatNames}</span>}
+              {minimized && <span style={{ fontSize: 11, fontWeight: 850, color: "#617181", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "4px 8px" }}>Minimized</span>}
+            </div>
+            {!minimized && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button disabled={locked} onClick={() => handleShuffle("rotation")} style={shuffleButtonStyle(preview?.focus === "rotation", "#16232E")}>🔀 Rotation Shuffle</button>
+                <button disabled={locked} onClick={() => handleShuffle("tier")} style={shuffleButtonStyle(preview?.focus === "tier", "#F0B429")}>⚖️ Tier Shuffle</button>
+              </div>
+            )}
+          </div>
+          {!minimized && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {items.map((m, idx) => {
+                const fakeMatch = { team1: m.team1, team2: m.team2, games: [{ t1: 0, t2: 0 }], tierSnapshot: {} };
+                const repeatedInThisMatch = [...m.team1, ...m.team2].filter(id => plannedRepeatIds.includes(id));
+                return (
+                  <div key={`${m.scheduleNo}-${idx}`} style={{ background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 18, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#16232E" }}>Match {m.scheduleNo || idx + 1}</div>
+                      {repeatedInThisMatch.length > 0 && (
+                        <div style={{ fontSize: 10, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42975", borderRadius: 999, padding: "3px 8px" }}>ada pemain repeat</div>
+                      )}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 28px 1fr", gap: 8, alignItems: "center", marginBottom: 2 }}>
+                      <div style={{ minWidth: 0, fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team1)}</div>
+                      <div style={{ textAlign: "center", fontSize: 11, fontWeight: 900, color: "#617181" }}>VS</div>
+                      <div style={{ minWidth: 0, textAlign: "right", fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team2)}</div>
+                    </div>
+                    <TierMatchStatus match={fakeMatch} players={players} compact />
+                    <button onClick={() => onPlay(m)} style={{ width: "100%", minHeight: 42, marginTop: 10, padding: "10px 12px", background: "#E4574F", border: "2px solid #E4574F", borderRadius: 14, color: "#FFFFFF", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>▶ Mainkan</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+    function AutoRoundPreviewModal({ preview, players, onShuffle, onConfirm, onClose }) {
+      const getPlayer = id => players.find(p => p.id === id);
+      const teamNames = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
+      const modeLabel = mode => mode === "single" ? "Single" : "Double";
+      const items = preview?.matches || [];
+      const playableNow = items.filter(m => m.court).length;
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "#000000dd", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
+          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: "#16232E", fontFamily: "'Space Grotesk', sans-serif" }}>🔄 Auto Rounds</div>
+                <div style={{ fontSize: 12, color: "#617181", marginTop: 2 }}>Preview semua pemain check-in. Bisa di-shuffle ulang sebelum dipakai.</div>
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "5px 9px", whiteSpace: "nowrap" }}>{items.length} match</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              {items.map((m, idx) => {
+                const fakeMatch = { team1: m.team1, team2: m.team2, games: [{ t1: 0, t2: 0 }], tierSnapshot: {} };
+                return (
+                  <div key={`${m.court}-${idx}`} style={{ background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 18, padding: "12px", boxShadow: "3px 3px 0 #16232E" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#16232E" }}>Match {m.scheduleNo || idx + 1}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}><div style={{ fontSize: 10, fontWeight: 850, color: m.court ? "#16232E" : "#617181", background: m.court ? "#16232E12" : "#16232E08", border: "1px solid #16232E30", borderRadius: 999, padding: "3px 8px" }}>{m.court ? `Lapangan ${m.court}` : "Menunggu"}</div><div style={{ fontSize: 10, fontWeight: 850, color: m.mode === "single" ? "#3A7BD5" : "#E4574F", background: m.mode === "single" ? "#3A7BD515" : "#E4574F15", border: `1px solid ${m.mode === "single" ? "#3A7BD555" : "#E4574F55"}`, borderRadius: 999, padding: "3px 8px" }}>{modeLabel(m.mode)}</div></div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 34px 1fr", gap: 8, alignItems: "center" }}>
+                      <div style={{ minWidth: 0, fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team1)}</div>
+                      <div style={{ textAlign: "center", fontSize: 11, fontWeight: 900, color: "#617181" }}>VS</div>
+                      <div style={{ minWidth: 0, textAlign: "right", fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team2)}</div>
+                    </div>
+                    <TierMatchStatus match={fakeMatch} players={players} compact />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 11, color: "#617181", margin: "-2px 0 12px", lineHeight: 1.4 }}>{playableNow === 0 ? "Belum ada lapangan kosong. Jadwal bisa dipakai nanti saat lapangan kosong." : (items.length > playableNow ? `${playableNow} match pertama bisa langsung masuk lapangan. ${items.length - playableNow} match lain jadi jadwal berikutnya.` : "Semua match di ronde ini bisa langsung masuk lapangan.")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 10 }}>
+              <button onClick={onShuffle} style={{ minHeight: 48, padding: "12px", background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 16, color: "#44515E", fontWeight: 850, fontSize: 13, cursor: "pointer" }}>🔀 Acak Ulang</button>
+              <button onClick={() => onConfirm(items)} style={{ minHeight: 48, padding: "12px", background: "#E4574F", border: "2px solid #E4574F", borderRadius: 16, color: "#fff", fontWeight: 900, fontSize: 14, cursor: "pointer" }}>✅ Masuk Lapangan</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     // ===== PLAYER STATS SCREEN =====
     function PlayerStatsScreen({ player, players, matches, sessions, currentSessionId, initialMode = "alltime", showModeSwitch = false, onBack }) {
@@ -3534,7 +4021,7 @@
       const getSessionStats = (sess) => {
         const sessMatches = matches.filter(m => m.status === "done" && (m.sessionId === sess.id || (!m.sessionId && sess.id === sessions[0]?.id)));
         const sessCheckedIn = new Set(checkedInBySession?.[sess.id] || []);
-        const sessStandings = buildStandings(players, sessMatches, sessCheckedIn).filter(p => sessCheckedIn.has(p.id));
+        const sessStandings = buildStandings(players, sessMatches, sessCheckedIn, sess.useMCompensation !== false).filter(p => sessCheckedIn.has(p.id));
         const wow = sessStandings[0] || null;
         const sos = sessStandings.length > 1 ? sessStandings[sessStandings.length - 1] : null;
         // MBG: Making Big Gains, pemain dengan subsidi tier terbesar
@@ -3788,25 +4275,32 @@
             {/* === RULES TAB === */}
             {sessionTab === "rules" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ background: "#FFFFFF", border: "2px solid #E4574F", borderRadius: 16, padding: 16, textAlign: "center", boxShadow: "3px 3px 0 #16232E" }}>
-                  <div style={{ fontSize: 12, color: "#E4574F", fontWeight: 850, letterSpacing: "0.06em", marginBottom: 6 }}>RUMUS UTAMA KLASEMEN</div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap", fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 900, color: "#16232E", lineHeight: 1.2 }}>
-                    <span>P =</span>
-                    <span style={{ color: "#123A6B", background: "#D9E8FF", border: "2px solid #3A7BD5", borderRadius: 9, padding: "2px 7px" }}>TS</span>
-                    <span>+</span>
-                    <span style={{ color: "#7A1B18", background: "#FFE0DE", border: "2px solid #E4574F", borderRadius: 9, padding: "2px 7px" }}>S</span>
-                    <span>+</span>
-                    <span style={{ color: "#5A3A00", background: "#FFE1A3", border: "2px solid #9A6A00", borderRadius: 9, padding: "2px 7px" }}>R</span>
-                    <span>+</span>
-                    <span style={{ color: "#0F5132", background: "#DDF7E8", border: "2px solid #2E8B57", borderRadius: 9, padding: "2px 7px" }}>M</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#334155", marginTop: 8, fontWeight: 650 }}>M hanya berlaku di Klasemen Harian, tidak masuk All Time</div>
+                <div style={{ background: "#FFFFFF", border: "2px solid #E4574F", borderRadius: 16, padding: 16, boxShadow: "3px 3px 0 #16232E" }}>
+                  <div style={{ fontSize: 12, color: "#E4574F", fontWeight: 850, letterSpacing: "0.06em", marginBottom: 10, textAlign: "center" }}>RUMUS UTAMA KLASEMEN</div>
+                  {[
+                    { label: "Harian · M aktif", m: true, note: "Dipakai kalau kompensasi M dinyalakan di tab Atur." },
+                    { label: "Harian · M mati / All Time", m: false, note: "Dipakai kalau kompensasi M dimatikan, dan untuk Klasemen All Time." },
+                  ].map(row => (
+                    <div key={row.label} style={{ background: row.m ? "#DDF7E8" : "#FAF7F2", border: `1px solid ${row.m ? "#2E8B5740" : "#16232E20"}`, borderRadius: 14, padding: "10px 12px", marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: row.m ? "#0F5132" : "#44515E", fontWeight: 850, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>{row.label}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontFamily: "'DM Mono', monospace", fontSize: 17, fontWeight: 900, color: "#16232E", lineHeight: 1.25 }}>
+                        <span>P =</span>
+                        <span style={{ color: "#123A6B", background: "#D9E8FF", border: "2px solid #3A7BD5", borderRadius: 8, padding: "1px 6px" }}>TS</span>
+                        <span>+</span>
+                        <span style={{ color: "#7A1B18", background: "#FFE0DE", border: "2px solid #E4574F", borderRadius: 8, padding: "1px 6px" }}>S</span>
+                        <span>+</span>
+                        <span style={{ color: "#5A3A00", background: "#FFE1A3", border: "2px solid #9A6A00", borderRadius: 8, padding: "1px 6px" }}>R</span>
+                        {row.m && <><span>+</span><span style={{ color: "#0F5132", background: "#DDF7E8", border: "2px solid #2E8B57", borderRadius: 8, padding: "1px 6px" }}>M</span></>}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#44515E", marginTop: 6, lineHeight: 1.35 }}>{row.note}</div>
+                    </div>
+                  ))}
                 </div>
                 {[
                   { code: "TS", color: "#D9E8FF", text: "#123A6B", border: "#3A7BD5", label: "Total Poin (Poin Murni)", points: ["Angka murni yang dicetak pemain.", "Diambil dari total poin semua set/game."] },
                   { code: "S", color: "#FFE0DE", text: "#7A1B18", border: "#E4574F", label: "Status Match", points: ["Menang = +3", "Seri/Draw = +1", "Kalah = 0", "Jika jumlah set imbang, total poin lebih besar tetap dihitung menang."] },
                   { code: "R", color: "#FFE1A3", text: "#5A3A00", border: "#9A6A00", label: "Subsidi Tier (Underdog)", points: ["Selisih tier >=200: menang +4, draw/kalah +2", "Selisih tier >=50: menang +2, draw/kalah +1", "Hanya diberikan ke tim underdog."] },
-                  { code: "M", color: "#DDF7E8", text: "#0F5132", border: "#2E8B57", label: "Kompensasi Absen (Harian)", points: ["+10 per match terlewat vs pemain yang paling banyak main.", "Hanya untuk pemain yang check-in di sesi itu.", "Tidak berlaku di Klasemen All Time."] },
+                  { code: "M", color: "#DDF7E8", text: "#0F5132", border: "#2E8B57", label: "Kompensasi Absen (Harian)", points: ["Opsional, bisa dinyalakan atau dimatikan per sesi di tab Atur.", "+10 per match terlewat vs pemain yang paling banyak main.", "Hanya untuk pemain yang check-in di sesi itu.", "Tidak berlaku di Klasemen All Time."] },
                 ].map(item => (
                   <div key={item.code} style={{ background: "#FFFFFF", borderRadius: 22, padding: 16, boxShadow: "3px 3px 0 #16232E", border: "2px solid #16232E" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -4111,6 +4605,59 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
