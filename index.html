@@ -564,6 +564,7 @@
       const [showGistModal, setShowGistModal] = useState(false);
       const [smartPreview, setSmartPreview] = useState(null); // {team1, team2, court, allCandidates}
       const [autoRoundPreview, setAutoRoundPreview] = useState(null); // {matches: [{team1, team2, court, mode}]}
+      const [lockedAutoRoundsBySession, setLockedAutoRoundsBySession] = useState({});
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
       const [checkedInBySession, setCheckedInBySession] = useState({ s1: [1, 2, 3, 4, 5, 6, 7, 8] });
@@ -651,10 +652,15 @@
           const data = JSON.parse(raw);
           if (data.players) setPlayers(data.players.map(p => ({ ...p, name: repairStoredText(p.name) })));
           if (data.matches) setMatches(data.matches);
+          const savedAutoRounds = data.lockedAutoRoundsBySession || {};
+          setLockedAutoRoundsBySession(savedAutoRounds);
           setCheckedInBySession(buildCheckedInBySession(data));
           if (data.numCourts) setNumCourts(data.numCourts);
           if (data.sessions) setSessions(data.sessions.map(s => ({ ...s, useMCompensation: s.useMCompensation !== false })));
           if (data.currentSessionId) setCurrentSessionId(data.currentSessionId);
+          const activeSessionId = data.currentSessionId || (data.sessions?.[0]?.id || "s1");
+          const savedAutoRound = savedAutoRounds[activeSessionId];
+          setAutoRoundPreview(savedAutoRound?.matches?.length ? { ...savedAutoRound, locked: true } : null);
           if (data.githubGistId) setGithubGistId(data.githubGistId);
           else setGithubGistId("");
           const isReadOnlyData = !!data.readOnly;
@@ -833,7 +839,7 @@
         if (!isLoaded || !workspaceId) return;
         const wsData = {
           players, matches, checkedIn: Array.from(checkedIn), checkedInBySession,
-          numCourts, sessions, currentSessionId, githubGistId, readOnly
+          numCourts, sessions, currentSessionId, githubGistId, readOnly, lockedAutoRoundsBySession
         };
         const nextJson = JSON.stringify(wsData);
         const prevJson = lastSavedWorkspaceJsonRef.current || localStorage.getItem(`courtRank_ws_${workspaceId}`) || "";
@@ -853,12 +859,21 @@
           localStorage.setItem(WORKSPACES_KEY, JSON.stringify(updated));
           return updated;
         });
-      }, [players, matches, checkedIn, checkedInBySession, numCourts, sessions, currentSessionId, githubGistId, readOnly, isLoaded, workspaceId]);
+      }, [players, matches, checkedIn, checkedInBySession, numCourts, sessions, currentSessionId, githubGistId, readOnly, lockedAutoRoundsBySession, isLoaded, workspaceId]);
 
       // Save github token globally (not per workspace)
       useEffect(() => {
         if (githubToken) localStorage.setItem(GITHUB_TOKEN_KEY, githubToken);
       }, [githubToken]);
+
+      useEffect(() => {
+        const saved = lockedAutoRoundsBySession[currentSessionId];
+        if (saved && saved.matches && saved.matches.length) {
+          setAutoRoundPreview({ ...saved, locked: true });
+        } else {
+          setAutoRoundPreview(null);
+        }
+      }, [currentSessionId]);
 
       const currentSessionMatches = useMemo(() => {
         const firstSessionId = sessions[0]?.id || "s1";
@@ -1105,7 +1120,7 @@
       // ---- GitHub Gist backup/restore ----
       const buildFullPayload = () => ({
         players, matches, checkedIn: Array.from(checkedIn), checkedInBySession,
-        numCourts, sessions, currentSessionId, githubGistId, readOnly,
+        numCourts, sessions, currentSessionId, githubGistId, readOnly, lockedAutoRoundsBySession,
         wsName: workspaces.find(w => w.id === workspaceId)?.name || "Arena",
         wsEmoji: workspaces.find(w => w.id === workspaceId)?.emoji || "🏸",
       });
@@ -1661,6 +1676,26 @@
         const plan = buildAutoRoundPlan(true, safeFocus, extraMatches);
         if (plan.error) { showNotify(plan.error, "error"); return; }
         setAutoRoundPreview(plan);
+        setLockedAutoRoundsBySession(prev => {
+          if (!prev[currentSessionId]) return prev;
+          const next = { ...prev };
+          delete next[currentSessionId];
+          return next;
+        });
+      };
+
+      const handleAutoRoundLockChange = (nextLocked) => {
+        setAutoRoundPreview(prev => {
+          if (!prev) return prev;
+          const nextPreview = { ...prev, locked: nextLocked };
+          setLockedAutoRoundsBySession(saved => {
+            const next = { ...saved };
+            if (nextLocked) next[currentSessionId] = nextPreview;
+            else delete next[currentSessionId];
+            return next;
+          });
+          return nextPreview;
+        });
       };
 
       const handlePlayAutoRoundMatch = (plannedMatch) => {
@@ -1693,7 +1728,16 @@
         setAutoRoundPreview(prev => {
           if (!prev) return null;
           const nextMatches = (prev.matches || []).filter(m => m.scheduleNo !== plannedMatch.scheduleNo);
-          return nextMatches.length ? { ...prev, matches: nextMatches } : null;
+          const nextPreview = nextMatches.length ? { ...prev, matches: nextMatches } : null;
+          if (prev.locked) {
+            setLockedAutoRoundsBySession(saved => {
+              const next = { ...saved };
+              if (nextPreview) next[currentSessionId] = nextPreview;
+              else delete next[currentSessionId];
+              return next;
+            });
+          }
+          return nextPreview;
         });
         showNotify(`Match ${plannedMatch.scheduleNo || "jadwal"} masuk ke Lapangan ${freeCourt}.`, "success");
       };
@@ -2345,6 +2389,7 @@
                     onShuffle={handleAutoRound}
                     onPlay={handlePlayAutoRoundMatch}
                     onClose={() => setAutoRoundPreview(null)}
+                    onLockChange={handleAutoRoundLockChange}
                   />
                 )}
                 <div style={{ fontSize: 12, color: "#617181", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
@@ -3403,11 +3448,17 @@ const updateScore = (gi, team, val) => {
       );
     }
 
-    function AutoRoundSchedulePanel({ preview, players, onShuffle, onPlay, onClose }) {
+    function AutoRoundSchedulePanel({ preview, players, onShuffle, onPlay, onClose, onLockChange }) {
       const [minimized, setMinimized] = useState(false);
-      const [locked, setLocked] = useState(false);
+      const [locked, setLocked] = useState(!!preview?.locked);
       const [scheduleShareBusy, setScheduleShareBusy] = useState(null);
       const scheduleShareRef = useRef(null);
+      useEffect(() => { setLocked(!!preview?.locked); }, [preview?.generatedAt, preview?.locked]);
+      const toggleLocked = () => {
+        const next = !locked;
+        setLocked(next);
+        if (onLockChange) onLockChange(next);
+      };
       const getPlayer = id => players.find(p => p.id === id);
       const teamNames = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
       const items = preview?.matches || [];
@@ -3513,7 +3564,7 @@ const updateScore = (gi, team, val) => {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setLocked(v => !v)} aria-label={locked ? "Unlock jadwal" : "Lock jadwal"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: locked ? "#F0B42935" : "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{locked ? "🔒" : "🔓"}</button>
+              <button onClick={toggleLocked} aria-label={locked ? "Unlock jadwal" : "Lock jadwal"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: locked ? "#F0B42935" : "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{locked ? "🔒" : "🔓"}</button>
               <button onClick={() => setMinimized(v => !v)} aria-label={minimized ? "Buka Auto Rounds" : "Minimize Auto Rounds"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{minimized ? "▾" : "▴"}</button>
               <button onClick={onClose} aria-label="Tutup jadwal" style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer" }}>×</button>
             </div>
@@ -4689,6 +4740,10 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
+
+
 
 
 
