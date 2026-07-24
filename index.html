@@ -3576,13 +3576,11 @@ const updateScore = (gi, team, val) => {
             </div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: minimized ? 0 : 12 }}>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{involvedCount} pemain</span>
-              <span style={{ fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{items.length} match</span>
-              <span style={{ fontSize: 11, fontWeight: 750, color: "#617181", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "4px 8px" }}>Double-first</span>
-              {locked && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Locked</span>}
-              {repeatNames && <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Repeat: {repeatNames}</span>}
-            </div>
+            {repeatNames && !minimized && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>Repeat: {repeatNames}</span>
+              </div>
+            )}
             {!minimized && (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", gap: 8, alignItems: "center" }}>
@@ -4740,6 +4738,8 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
 
 
 
