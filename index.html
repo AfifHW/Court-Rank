@@ -151,6 +151,12 @@
       { id: 10, name: "Siahr oni", tier: "E" },
     ];
 
+    const GENDER_OPTIONS = {
+      unknown: { label: "Belum diisi", short: "-", icon: "•", color: "#617181", bg: "#16232E08", border: "#16232E20" },
+      male: { label: "Pria", short: "P", icon: "♂", color: "#1D4ED8", bg: "#DBEAFE", border: "#93C5FD" },
+      female: { label: "Wanita", short: "W", icon: "♀", color: "#BE185D", bg: "#FCE7F3", border: "#F9A8D4" },
+    };
+    const normalizeGender = (gender) => GENDER_OPTIONS[gender] ? gender : "unknown";
     const INITIAL_MATCHES = [
       {
         id: "m1", courtId: 1, status: "done",
@@ -564,6 +570,8 @@
       const [showGistModal, setShowGistModal] = useState(false);
       const [smartPreview, setSmartPreview] = useState(null); // {team1, team2, court, allCandidates}
       const [autoRoundPreview, setAutoRoundPreview] = useState(null); // {matches: [{team1, team2, court, mode}]}
+      const [autoRoundVariantCache, setAutoRoundVariantCache] = useState({});
+      const [autoRoundMode, setAutoRoundMode] = useState("free");
       const [lockedAutoRoundsBySession, setLockedAutoRoundsBySession] = useState({});
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
@@ -591,6 +599,7 @@
 
       const [newPlayerName, setNewPlayerName] = useState("");
       const [newPlayerTier, setNewPlayerTier] = useState("C");
+      const [newPlayerGender, setNewPlayerGender] = useState("unknown");
 
       const [scoreModal, setScoreModal] = useState(null);
       const [manualModal, setManualModal] = useState(false);
@@ -650,7 +659,7 @@
         lastSavedWorkspaceJsonRef.current = raw;
         try {
           const data = JSON.parse(raw);
-          if (data.players) setPlayers(data.players.map(p => ({ ...p, name: repairStoredText(p.name) })));
+          if (data.players) setPlayers(data.players.map(p => ({ ...p, name: repairStoredText(p.name), gender: normalizeGender(p.gender) })));
           if (data.matches) setMatches(data.matches);
           const savedAutoRounds = data.lockedAutoRoundsBySession || {};
           setLockedAutoRoundsBySession(savedAutoRounds);
@@ -705,7 +714,7 @@
                 wsList = [{ id: migratedId, name: "Badminton", emoji: "🏸", updatedAt: Date.now() }];
                 localStorage.setItem(WORKSPACES_KEY, JSON.stringify(wsList));
                 localStorage.setItem(`courtRank_ws_${migratedId}`, JSON.stringify({
-                  players: old.players || [], matches: old.matches || [],
+                  players: (old.players || []).map(p => ({ ...p, name: repairStoredText(p.name) || p.name, gender: normalizeGender(p.gender) })), matches: old.matches || [],
                   checkedIn: old.checkedIn || [], checkedInBySession: buildCheckedInBySession(old, "s1"), numCourts: old.numCourts || 3,
                   sessions: old.sessions || [defaultSession],
                   currentSessionId: old.currentSessionId || "s1", githubGistId: "",
@@ -1030,10 +1039,12 @@
           id: Date.now(),
           name: cleanName,
           tier: newPlayerTier,
+          gender: normalizeGender(newPlayerGender),
         };
         setPlayers(prev => [...prev, newPlayer]);
         setCheckedIn(prev => new Set(prev).add(newPlayer.id));
         setNewPlayerName("");
+        setNewPlayerGender("unknown");
         showNotify(`${newPlayer.name} (Tier ${newPlayerTier}) ditambahkan!`);
       };
 
@@ -1163,7 +1174,7 @@
           const content = data.files?.["courtrank-data.json"]?.content;
           if (!content) throw new Error("File tidak ditemukan di Gist");
           const parsed = JSON.parse(content);
-          if (parsed.players) setPlayers(parsed.players);
+          if (parsed.players) setPlayers(parsed.players.map(p => ({ ...p, name: repairStoredText(p.name) || p.name, gender: normalizeGender(p.gender) })));
           if (parsed.matches) setMatches(parsed.matches);
           setCheckedInBySession(buildCheckedInBySession(parsed));
           if (parsed.numCourts) setNumCourts(parsed.numCourts);
@@ -1513,7 +1524,7 @@
         return (balancedPool.length ? balancedPool : rotationPool).slice(0, 16);
       };
 
-      const buildAutoRoundPlan = (allowRelaxedShuffle = true, focus = "rotation", extraMatches = 0) => {
+      const buildAutoRoundPlan = (allowRelaxedShuffle = true, focus = "rotation", extraMatches = 0, roundMode = autoRoundMode) => {
         const freeCourts = courts.filter(c => !occupiedCourts.has(c));
         const baseAvail = players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id));
         if (baseAvail.length < 4) return { error: "Auto Rounds double butuh minimal 4 pemain tersedia." };
@@ -1554,6 +1565,58 @@
             [copy[i], copy[j]] = [copy[j], copy[i]];
           }
           return copy;
+        };
+        const playerGender = (p) => normalizeGender(p?.gender);
+        const isMale = (p) => playerGender(p) === "male";
+        const isFemale = (p) => playerGender(p) === "female";
+        const isMixedTeamIds = (ids) => {
+          const teamPlayers = ids.map(id => players.find(p => p.id === id)).filter(Boolean);
+          return teamPlayers.length === 2 && teamPlayers.some(isMale) && teamPlayers.some(isFemale);
+        };
+        const mixedCandidateScore = (group, scheduleNo) => {
+          const candidates = calcBestMatches(group, scheduleNo, allowRelaxedShuffle, "tier").filter(c => isMixedTeamIds(c.team1) && isMixedTeamIds(c.team2));
+          const best = candidates[0];
+          if (!best) return Infinity;
+          return ((best.pairGapWorst || 0) * 4600) + ((best.pairGapTotal || 0) * 1300) + ((best.diff || 0) * 2600) + (Math.max(0, (best.diff || 0) - 150) * 9000) + ((best.varietyPenalty || 0) * 9);
+        };
+        const makeMixedGroupsAndRest = (pool) => {
+          const entries = pool.map((p, idx) => ({ p, key: `${p.id}-${idx}` }));
+          const mixedGroups = [];
+          const pairItems = (items) => {
+            const pairs = [];
+            for (let i = 0; i < items.length; i++) {
+              for (let j = i + 1; j < items.length; j++) {
+                if (items[i].p.id !== items[j].p.id) pairs.push([items[i], items[j]]);
+              }
+            }
+            return pairs;
+          };
+          while (true) {
+            const malePairs = pairItems(entries.filter(item => isMale(item.p)));
+            const femalePairs = pairItems(entries.filter(item => isFemale(item.p)));
+            if (!malePairs.length || !femalePairs.length) break;
+            let best = null;
+            malePairs.forEach(mp => {
+              femalePairs.forEach(fp => {
+                const groupEntries = [...mp, ...fp];
+                const uniqueIds = new Set(groupEntries.map(item => item.p.id));
+                if (uniqueIds.size !== 4) return;
+                const group = groupEntries.map(item => item.p);
+                const score = mixedCandidateScore(group, mixedGroups.length + 1);
+                if (!Number.isFinite(score)) return;
+                const rotationScore = groupEntries.reduce((sum, item) => sum + entries.findIndex(e => e.key === item.key), 0);
+                const totalScore = score + rotationScore;
+                if (!best || totalScore < best.score) best = { score: totalScore, keys: groupEntries.map(item => item.key), group };
+              });
+            });
+            if (!best) break;
+            mixedGroups.push(best.group);
+            best.keys.forEach(key => {
+              const idx = entries.findIndex(item => item.key === key);
+              if (idx >= 0) entries.splice(idx, 1);
+            });
+          }
+          return { mixedGroups, restPool: entries.map(item => item.p) };
         };
         const scoreGroups = (groups) => {
           let total = 0;
@@ -1634,16 +1697,28 @@
 
         const makePlannedFromPool = (pool) => {
           const result = [];
-          const sourceGroups = makeGroups(pool);
-          for (let idx = 0; idx < sourceGroups.length; idx++) {
+          const addGroup = (group, mixedPreferred = false) => {
             const court = freeCourts[result.length] || null;
             const scheduleNo = result.length + 1;
-            const group = sourceGroups[idx];
             const candidates = calcBestMatches(group, court || scheduleNo, allowRelaxedShuffle, focus);
-            const pickPool = focus === "tier" ? candidates.slice(0, Math.min(4, candidates.length)) : candidates;
+            const mixedCandidates = mixedPreferred ? candidates.filter(c => isMixedTeamIds(c.team1) && isMixedTeamIds(c.team2)) : [];
+            const sourceCandidates = mixedCandidates.length ? mixedCandidates : candidates;
+            const pickPool = focus === "tier" ? sourceCandidates.slice(0, Math.min(4, sourceCandidates.length)) : sourceCandidates;
             const candidate = pickPool.length ? pickPool[Math.floor(Math.random() * pickPool.length)] : null;
-            if (!candidate) continue;
-            result.push({ ...candidate, court, scheduleNo, mode: "double" });
+            if (!candidate) return;
+            result.push({ ...candidate, court, scheduleNo, mode: "double", mixType: mixedCandidates.length ? "mixed" : "free" });
+          };
+          if (roundMode === "mixed") {
+            const { mixedGroups, restPool } = makeMixedGroupsAndRest(pool);
+            const restGroups = makeGroups(restPool);
+            if (mixedGroups.length && scoreGroups(restGroups) !== Infinity) {
+              mixedGroups.forEach(group => addGroup(group, true));
+              restGroups.forEach(group => addGroup(group, false));
+            } else {
+              makeGroups(pool).forEach(group => addGroup(group, false));
+            }
+          } else {
+            makeGroups(pool).forEach(group => addGroup(group, false));
           }
           return result;
         };
@@ -1667,14 +1742,37 @@
 
         if (planned.length === 0) return { error: "Belum bisa membuat ronde dari pemain yang tersedia." };
         if (!hasPlannedCoverage(planned)) return { error: "Auto Rounds belum bisa memastikan semua pemain hadir kebagian main. Coba kocok ulang." };
-        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, extraMatches: safeExtraMatches, baseMatchCount, repeatPlayerIds: repeatPlayers.map(p => p.id) };
+        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, roundMode: roundMode === "mixed" ? "mixed" : "free", mixedMatchCount: planned.filter(m => m.mixType === "mixed").length, extraMatches: safeExtraMatches, baseMatchCount, repeatPlayerIds: repeatPlayers.map(p => p.id) };
       };
 
-      const handleAutoRound = (focus = "rotation", extraMatches = 0) => {
+      const getAutoRoundCacheKey = (focus = "rotation", extraMatches = 0, roundModeOverride = autoRoundMode) => {
+        const safeFocus = focus === "tier" ? "tier" : "rotation";
+        const safeRoundMode = roundModeOverride === "mixed" ? "mixed" : "free";
+        const availableIds = players
+          .filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id))
+          .map(p => p.id)
+          .sort((a, b) => a - b)
+          .join("-");
+        const matchSignature = matches
+          .filter(m => m.status === "done" || m.status === "ongoing")
+          .map(m => `${m.id}:${m.status}`)
+          .join("|");
+        return `${currentSessionId}|${safeRoundMode}|${safeFocus}|${Number(extraMatches) || 0}|${availableIds}|${matchSignature}`;
+      };
+
+      const handleAutoRound = (focus = "rotation", extraMatches = 0, roundModeOverride = autoRoundMode, forceShuffle = false) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const safeFocus = focus === "tier" ? "tier" : "rotation";
-        const plan = buildAutoRoundPlan(true, safeFocus, extraMatches);
+        const safeRoundMode = roundModeOverride === "mixed" ? "mixed" : "free";
+        const cacheKey = getAutoRoundCacheKey(safeFocus, extraMatches, safeRoundMode);
+        setAutoRoundMode(safeRoundMode);
+        if (!forceShuffle && autoRoundVariantCache[cacheKey]) {
+          setAutoRoundPreview(autoRoundVariantCache[cacheKey]);
+          return;
+        }
+        const plan = buildAutoRoundPlan(true, safeFocus, extraMatches, safeRoundMode);
         if (plan.error) { showNotify(plan.error, "error"); return; }
+        setAutoRoundVariantCache(prev => ({ ...prev, [cacheKey]: plan }));
         setAutoRoundPreview(plan);
         setLockedAutoRoundsBySession(prev => {
           if (!prev[currentSessionId]) return prev;
@@ -2004,7 +2102,7 @@
                 isDanger: true,
                 onConfirm: () => {
                   const cleaned = {
-                    players: (data.players || []).map(p => ({ ...p, name: repairStoredText(p.name) || p.name })),
+                    players: (data.players || []).map(p => ({ ...p, name: repairStoredText(p.name) || p.name, gender: normalizeGender(p.gender) })),
                     matches: data.matches || [],
                     checkedIn: data.checkedIn || [],
                     checkedInBySession: buildCheckedInBySession(data),
@@ -2149,7 +2247,7 @@
             currentSessionId={currentSessionId}
             currentSessionLabel={sessions.find(s=>s.id===currentSessionId)?.label||"Sesi ini"}
             onClose={() => setEditingPlayer(null)}
-            onSave={(id, newName, newTier, changeType) => {
+            onSave={(id, newName, newTier, newGender, changeType) => {
               if (readOnly) {
                 showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
                 setEditingPlayer(null);
@@ -2159,7 +2257,7 @@
               const tierChanged = player && newTier !== player.tier;
               setPlayers(prev => prev.map(p => {
                 if (p.id !== id) return p;
-                const updated = { ...p, name: newName, tier: newTier };
+                const updated = { ...p, name: newName, tier: newTier, gender: normalizeGender(newGender) };
                 if (tierChanged) {
                   const histEntry = { from: p.tier, to: newTier, sessionId: currentSessionId, sessionLabel: sessions.find(s=>s.id===currentSessionId)?.label||"Sesi ini", date: new Date().toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}), type: changeType };
                   updated.tierHistory = [...(p.tierHistory||[]), histEntry];
@@ -2230,12 +2328,12 @@
             currentSessionId={currentSessionId}
             currentSessionLabel={sessions.find(s=>s.id===currentSessionId)?.label||"Sesi ini"}
             onClose={() => setEditingPlayer(null)}
-            onSave={(id, newName, newTier, changeType) => {
+            onSave={(id, newName, newTier, newGender, changeType) => {
               const player = players.find(p => p.id === id);
               const tierChanged = player && newTier !== player.tier;
               setPlayers(prev => prev.map(p => {
                 if (p.id !== id) return p;
-                const updated = { ...p, name: newName, tier: newTier };
+                const updated = { ...p, name: newName, tier: newTier, gender: normalizeGender(newGender) };
                 if (tierChanged) {
                   const histEntry = {
                     from: p.tier, to: newTier,
@@ -2386,6 +2484,7 @@
                   <AutoRoundSchedulePanel
                     preview={autoRoundPreview}
                     players={players}
+                    session={currentSession}
                     onShuffle={handleAutoRound}
                     onPlay={handlePlayAutoRoundMatch}
                     onClose={() => setAutoRoundPreview(null)}
@@ -2921,12 +3020,12 @@
               currentSessionId={currentSessionId}
               currentSessionLabel={sessions.find(s=>s.id===currentSessionId)?.label||"Sesi ini"}
               onClose={() => setEditingPlayer(null)}
-              onSave={(id, newName, newTier, changeType) => {
+              onSave={(id, newName, newTier, newGender, changeType) => {
                 const player = players.find(p => p.id === id);
                 const tierChanged = player && newTier !== player.tier;
                 setPlayers(prev => prev.map(p => {
                   if (p.id !== id) return p;
-                  const updated = { ...p, name: newName, tier: newTier };
+                  const updated = { ...p, name: newName, tier: newTier, gender: normalizeGender(newGender) };
                   if (tierChanged) {
                     const histEntry = {
                       from: p.tier, to: newTier,
@@ -3293,6 +3392,7 @@ const updateScore = (gi, team, val) => {
     function EditPlayerModal({ player, currentSessionId, currentSessionLabel, onClose, onSave }) {
       const [name, setName] = React.useState(player.name);
       const [tier, setTier] = React.useState(player.tier);
+      const [gender, setGender] = React.useState(normalizeGender(player.gender));
       const [changeType, setChangeType] = React.useState("resmi");
       const tierChanged = tier !== player.tier;
       const history = (player.tierHistory || []).filter(h => h.type !== "init");
@@ -3306,6 +3406,10 @@ const updateScore = (gi, team, val) => {
 
             <select value={tier} onChange={e => { setTier(e.target.value); }} style={{ width: "100%", background: "#FAF7F2", border: `1px solid ${tierChanged ? "#F0B42960" : "#16232E20"}`, borderRadius: 14, padding: "12px", color: "#16232E", fontSize: 13, outline: "none", marginBottom: tierChanged ? 10 : 0 }}>
               {Object.keys(TIER_WEIGHT).map(t => <option key={t} value={t}>Tier {t} — {TIER_WEIGHT[t]} pts</option>)}
+            </select>
+
+            <select value={gender} onChange={e => setGender(e.target.value)} style={{ width: "100%", background: "#FAF7F2", border: "1px solid #16232E20", borderRadius: 14, padding: "12px", color: "#16232E", fontSize: 13, outline: "none", marginBottom: tierChanged ? 10 : 14 }}>
+              {Object.entries(GENDER_OPTIONS).map(([key, opt]) => <option key={key} value={key}>Gender — {opt.label}</option>)}
             </select>
 
             {tierChanged && (
@@ -3347,7 +3451,7 @@ const updateScore = (gi, team, val) => {
 
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#16232E10", border: "none", color: "#16232E", fontWeight: 600, cursor: "pointer" }}>Batal</button>
-              <button onClick={() => onSave(player.id, name.trim(), tier, changeType)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#E4574F", border: "none", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Simpan</button>
+              <button onClick={() => onSave(player.id, name.trim(), tier, gender, changeType)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#E4574F", border: "none", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Simpan</button>
             </div>
           </div>
         </div>
@@ -3448,7 +3552,7 @@ const updateScore = (gi, team, val) => {
       );
     }
 
-    function AutoRoundSchedulePanel({ preview, players, onShuffle, onPlay, onClose, onLockChange }) {
+    function AutoRoundSchedulePanel({ preview, players, session, onShuffle, onPlay, onClose, onLockChange }) {
       const [minimized, setMinimized] = useState(false);
       const [locked, setLocked] = useState(!!preview?.locked);
       const [scheduleShareBusy, setScheduleShareBusy] = useState(null);
@@ -3474,20 +3578,28 @@ const updateScore = (gi, team, val) => {
       const extraMatches = preview?.extraMatches || 0;
       const maxExtraMatches = Math.max(0, Math.floor((preview?.playerCount || involvedCount) / 4));
       const summaryText = `${involvedCount} pemain, ${items.length} match, ${repeatText}`;
-      const handleShuffle = (focus, nextExtra = extraMatches) => {
+      const roundMode = preview?.roundMode === "mixed" ? "mixed" : "free";
+      const handleShuffle = (focus, nextExtra = extraMatches, nextMode = preview?.roundMode || "free") => {
         if (locked) return;
-        onShuffle(focus, nextExtra);
+        const sameView = focus === preview?.focus && nextMode === roundMode && nextExtra === extraMatches;
+        onShuffle(focus, nextExtra, nextMode, sameView);
+      };
+      const handleRoundMode = (nextMode) => {
+        if (locked) return;
+        handleShuffle(preview?.focus || "rotation", extraMatches, nextMode);
       };
       const handleExtraMatch = (delta) => {
         if (locked) return;
         const nextExtra = Math.max(0, Math.min(maxExtraMatches, extraMatches + delta));
         if (nextExtra === extraMatches) return;
-        onShuffle(preview?.focus || "rotation", nextExtra);
+        onShuffle(preview?.focus || "rotation", nextExtra, preview?.roundMode || "free");
       };
       const buildScheduleShareText = () => {
-        let text = `🔄 *AUTO ROUNDS COURTRANK*\n${summaryText}\nMode: ${preview?.focus === "tier" ? "Tier Shuffle" : "Rotation Shuffle"}\n`;
-        if (repeatNames) text += `Repeat: ${repeatNames}\n`;
-        text += `\n`;
+        const sessionName = (session?.label || "Sesi").toUpperCase();
+        const sessionDate = session?.date ? ` (${session.date})` : "";
+        let text = `*DATANG DAN SAKSIKAN LAH ${sessionName}${sessionDate}*\n`;
+        text += `${involvedCount} pemain, ${items.length} match!\n`;
+        text += `Pemain Repeat: ${repeatNames || "-"}\n\n`;
         items.forEach((m, idx) => {
           text += `Match ${m.scheduleNo || idx + 1}: ${teamNames(m.team1)} vs ${teamNames(m.team2)}\n`;
         });
@@ -3583,6 +3695,10 @@ const updateScore = (gi, team, val) => {
             )}
             {!minimized && (
               <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <button disabled={locked} onClick={() => handleRoundMode("free")} style={shuffleButtonStyle(roundMode === "free", "#F0B429")}>Bebas</button>
+                  <button disabled={locked} onClick={() => handleRoundMode("mixed")} style={shuffleButtonStyle(roundMode === "mixed", "#F0B429")}>Campuran</button>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", gap: 8, alignItems: "center" }}>
                   <button disabled={locked || extraMatches <= 0} onClick={() => handleExtraMatch(-1)} style={{ minHeight: 40, border: "2px solid #16232E", borderRadius: 14, background: locked || extraMatches <= 0 ? "#16232E08" : "#FFFFFF", color: locked || extraMatches <= 0 ? "#8B98A5" : "#16232E", fontWeight: 900, cursor: locked || extraMatches <= 0 ? "not-allowed" : "pointer" }}>−</button>
                   <div style={{ minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #16232E", borderRadius: 14, background: extraMatches > 0 ? "#F0B42924" : "#FFFFFF", color: "#16232E", fontSize: 12, fontWeight: 850 }}>
@@ -3607,9 +3723,12 @@ const updateScore = (gi, team, val) => {
                   <div key={`${m.scheduleNo}-${idx}`} style={{ background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 18, padding: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ fontSize: 13, fontWeight: 900, color: "#16232E" }}>Match {m.scheduleNo || idx + 1}</div>
-                      {repeatedInThisMatch.length > 0 && (
-                        <div style={{ fontSize: 10, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42975", borderRadius: 999, padding: "3px 8px" }}>ada pemain repeat</div>
-                      )}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <div style={{ fontSize: 10, fontWeight: 850, color: m.mixType === "mixed" ? "#BE185D" : "#44515E", background: m.mixType === "mixed" ? "#FCE7F3" : "#16232E08", border: `1px solid ${m.mixType === "mixed" ? "#F9A8D4" : "#16232E20"}`, borderRadius: 999, padding: "3px 8px" }}>{m.mixType === "mixed" ? "Campuran" : "Bebas"}</div>
+                        {repeatedInThisMatch.length > 0 && (
+                          <div style={{ fontSize: 10, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42975", borderRadius: 999, padding: "3px 8px" }}>ada pemain repeat</div>
+                        )}
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 28px 1fr", gap: 8, alignItems: "center", marginBottom: 2 }}>
                       <div style={{ minWidth: 0, fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team1)}</div>
@@ -4078,7 +4197,7 @@ const updateScore = (gi, team, val) => {
     }
 
     // ===== SESSION SCREEN =====
-    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, readOnly = false, onSelectSession, onNewSession, onDeleteSession, onBack, onBackup, onRestore, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier }) {
+    function SessionScreen({ sessions, matches, players, checkedIn, checkedInBySession, currentSessionId, wsName, wsEmoji, readOnly = false, onSelectSession, onNewSession, onDeleteSession, onBack, onBackup, onRestore, onEditPlayer, onAddPlayer, onDeletePlayer, onViewStats, newPlayerName, setNewPlayerName, newPlayerTier, setNewPlayerTier, newPlayerGender, setNewPlayerGender }) {
       const medals = ["🥇","🥈","🥉"];
       const [sessionTab, setSessionTab] = React.useState("sessions"); // sessions | players | rules
       const [allTimeShareBusy, setAllTimeShareBusy] = React.useState(null);
@@ -4344,13 +4463,17 @@ const updateScore = (gi, team, val) => {
                   <input type="text" placeholder="Nama Pemain..." value={newPlayerName} onChange={e => setNewPlayerName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && onAddPlayer()}
                     style={{ width: "100%", background: "#FAF7F2", border: "1px solid #16232E20", padding: "12px 14px", borderRadius: 14, color: "#16232E", fontSize: 13, outline: "none", marginBottom: 8 }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                     <select value={newPlayerTier} onChange={e => setNewPlayerTier(e.target.value)}
                       style={{ flex: 1, background: "#FAF7F2", border: "1px solid #16232E20", padding: "12px", borderRadius: 14, color: "#16232E", fontSize: 13, outline: "none" }}>
                       {Object.keys(TIER_WEIGHT).map(t => <option key={t} value={t}>Tier {t} — {TIER_WEIGHT[t]} pts</option>)}
                     </select>
-                    <button onClick={onAddPlayer} style={{ background: "#E4574F", border: "none", borderRadius: 8, padding: "0 20px", color: "#fff", fontWeight: 700, cursor: "pointer" }}>Tambah</button>
+                    <select value={newPlayerGender} onChange={e => setNewPlayerGender(e.target.value)}
+                      style={{ flex: 1, background: "#FAF7F2", border: "1px solid #16232E20", padding: "12px", borderRadius: 14, color: "#16232E", fontSize: 13, outline: "none" }}>
+                      {Object.entries(GENDER_OPTIONS).map(([key, opt]) => <option key={key} value={key}>Gender — {opt.label}</option>)}
+                    </select>
                   </div>
+                  <button onClick={onAddPlayer} style={{ width: "100%", minHeight: 44, background: "#E4574F", border: "2px solid #E4574F", borderRadius: 14, padding: "10px 20px", color: "#fff", fontWeight: 850, cursor: "pointer", boxShadow: "3px 3px 0 #16232E" }}>Tambah Pemain</button>
                 </div>
 
                 }{Object.keys(TIER_WEIGHT).map(tier => {
@@ -4377,6 +4500,7 @@ const updateScore = (gi, team, val) => {
                                     </div>
                                   )}
                                 </div>
+                                <span style={{ fontSize: 10, fontWeight: 850, color: GENDER_OPTIONS[normalizeGender(p.gender)].color, background: GENDER_OPTIONS[normalizeGender(p.gender)].bg, border: `1px solid ${GENDER_OPTIONS[normalizeGender(p.gender)].border}`, borderRadius: 999, padding: "3px 7px", whiteSpace: "nowrap" }}>{GENDER_OPTIONS[normalizeGender(p.gender)].icon} {GENDER_OPTIONS[normalizeGender(p.gender)].short}</span>
                                 <TierBadge tier={p.tier} small />
                                 {!readOnly && <button onClick={() => onEditPlayer(p)} style={{ background: "#FFFFFF", border: "2px solid #16232E", color: "#44515E", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Edit</button>}
                                 {!readOnly && <button onClick={(e) => onDeletePlayer(p.id, p.name, e)} style={{ background: "#FFE9EC30", border: "1px solid #E4574F50", color: "#E4574F", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>}
@@ -4738,6 +4862,16 @@ const updateScore = (gi, team, val) => {
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
 
 
 
