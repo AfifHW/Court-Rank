@@ -379,7 +379,7 @@
           });
           const standings = buildStandings(players, cumulative, allIds, false);
           const ranks = new Map(standings.map((p, idx) => [p.id, { rank: idx + 1, name: p.name }]));
-          return { session: sess, ranks, top5: standings.slice(0, 5).map(p => p.id) };
+          return { session: sess, ranks, top5: standings.slice(0, 5).map(p => p.id), top5Names: standings.slice(0, 5).map(p => p.name) };
         });
         const focusIds = [];
         timeline.forEach(point => point.top5.forEach(id => { if (!focusIds.includes(id)) focusIds.push(id); }));
@@ -412,10 +412,13 @@
       const xFor = idx => L + (visible.length === 1 ? plotW / 2 : (idx / (visible.length - 1)) * plotW);
       const yFor = rank => T + ((Math.min(7, Math.max(1, rank)) - 1) / 6) * plotH;
       const labelFor = id => players.find(p => p.id === id)?.name || id;
-      const colorFor = id => colors[chart.focusIds.indexOf(id) % colors.length];
+      const finalVisibleTop5Ids = visible[visible.length - 1]?.top5 || [];
+      const visibleFocusIds = [...finalVisibleTop5Ids];
+      visible.forEach(point => point.top5.forEach(id => { if (!visibleFocusIds.includes(id)) visibleFocusIds.push(id); }));
       const legendLimit = 6;
-      const visibleLegendIds = chart.focusIds.slice(0, legendLimit);
-      const hiddenLegendCount = Math.max(0, chart.focusIds.length - legendLimit);
+      const visibleLegendIds = visibleFocusIds.slice(0, legendLimit);
+      const hiddenLegendCount = Math.max(0, visibleFocusIds.length - legendLimit);
+      const colorFor = id => colors[Math.max(0, visibleLegendIds.indexOf(id)) % colors.length];
 
       const getChartBlob = async () => {
         const el = chartShareRef.current;
@@ -480,7 +483,7 @@
           <div style={{ border: "1px solid #16232E14", borderRadius: 14, background: "#FAF7F2", padding: "8px 6px 6px", overflowX: "auto" }}>
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="220" role="img" aria-label="Trend ranking top 5 all time">
               {[1,2,3,4,5,6,7].map(rank => <g key={rank}><line x1={L} x2={W-R} y1={yFor(rank)} y2={yFor(rank)} stroke="#16232E" strokeOpacity={rank <= 5 ? 0.14 : 0.08} strokeDasharray={rank > 5 ? "3 4" : "0"} /><text x={8} y={yFor(rank)+4} fontSize="10" fontWeight="800" fill={rank <= 5 ? "#16232E" : "#9AA4AE"}>{rank}</text></g>)}
-              {chart.focusIds.map(id => {
+              {visibleLegendIds.map(id => {
                 const segments = [];
                 for (let i = 0; i < visible.length - 1; i++) {
                   const a = visible[i].ranks.get(id);
@@ -491,7 +494,7 @@
                 }
                 return <g key={id}>{segments}</g>;
               })}
-              {chart.focusIds.map(id => visible.map((point, idx) => {
+              {visibleLegendIds.map(id => visible.map((point, idx) => {
                 const r = point.ranks.get(id);
                 if (!r) return null;
                 const inTop = r.rank <= 5;
@@ -506,10 +509,10 @@
             <button disabled={rangeMode === "all" || safePageFromEnd === 0} onClick={() => setPageFromEnd(p => Math.max(0, p - 1))} style={{ minHeight: 36, padding: "7px 10px", borderRadius: 12, border: "2px solid #16232E", background: "#FFFFFF", color: "#16232E", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Baru →</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px", marginTop: 12 }}>
-            {visibleLegendIds.map(id => <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: colorFor(id), border: "1px solid #16232E", flex: "0 0 auto" }} /><span style={{ fontSize: 11, color: "#16232E", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{labelFor(id)}</span></div>)}
+            {visibleLegendIds.map((id, idx) => <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: colorFor(id), border: "1px solid #16232E", flex: "0 0 auto" }} /><span style={{ fontSize: 11, color: "#16232E", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{idx < 5 ? `${idx + 1}. ` : ""}{labelFor(id)}</span></div>)}
             {hiddenLegendCount > 0 && <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, color: "#617181", fontSize: 11, fontWeight: 800 }}>+{hiddenLegendCount} pemain lain</div>}
           </div>
-          <div style={{ marginTop: 8, fontSize: 10, color: "#617181", lineHeight: 1.35 }}>Garis abu putus-putus berarti pemain sedang keluar dari 5 besar pada sesi tersebut.</div>
+          <div style={{ marginTop: 8, fontSize: 10, color: "#617181", lineHeight: 1.35 }}>Legenda diawali Top 5 pada sesi terakhir di rentang ini. Garis abu putus-putus berarti pemain sedang keluar dari 5 besar pada sesi tersebut.</div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <button onClick={handleDownloadChartImage} disabled={chartShareBusy !== null} style={{ flex: 1, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 16, padding: "12px 10px", cursor: chartShareBusy !== null ? "default" : "pointer", color: "#44515E", fontWeight: 800, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{chartShareBusy === "download" ? "⏳" : "💾"} Simpan Gambar</button>
