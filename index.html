@@ -62,20 +62,28 @@
     html {
       overflow-y: scroll;
       scrollbar-gutter: stable;
-      background: var(--cr-bg);
+      background: #F4F2ED;
       -webkit-text-size-adjust: 100%;
     }
     body {
       margin: 0;
       padding: 0;
-      background: var(--cr-bg);
+      background: #F4F2ED;
       color: var(--cr-ink);
       font-family: 'DM Sans', sans-serif;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
       touch-action: manipulation;
     }
-    #root { min-height: 100dvh; background: var(--cr-bg); }
+    #root {
+      min-height: 100dvh;
+      background-color: #F6F3EE;
+      background-image:
+        linear-gradient(132deg, rgba(228, 87, 79, 0.13) 0%, rgba(228, 87, 79, 0.035) 24%, transparent 43%),
+        linear-gradient(312deg, rgba(58, 123, 213, 0.1) 0%, rgba(58, 123, 213, 0.025) 29%, transparent 48%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(246, 243, 238, 0.9));
+      background-attachment: fixed;
+    }
     * { box-sizing: border-box; }
     input, button, select, textarea { font-family: inherit; font-size: 14px; }
     button, [role="button"] {
@@ -90,6 +98,15 @@
       min-height: 44px;
       transition: border-color var(--cr-ease), box-shadow var(--cr-ease), background-color var(--cr-ease);
     }
+    button.cr-compact-icon { min-height: 0; }
+    input.cr-compact-score {
+      min-height: 30px;
+      height: 30px;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    input.cr-compact-score::-webkit-inner-spin-button,
+    input.cr-compact-score::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input:focus, select:focus, textarea:focus, button:focus-visible {
       outline: none;
       box-shadow: 0 0 0 3px rgba(228, 87, 79, 0.22) !important;
@@ -104,6 +121,199 @@
       animation: shimmer 1.25s ease-in-out infinite;
     }
     .cr-touch-row { min-height: 48px; }
+    .cr-glass-header {
+      background: rgba(255, 255, 255, 0.56) !important;
+      -webkit-backdrop-filter: blur(24px) saturate(145%) contrast(104%);
+      backdrop-filter: blur(24px) saturate(145%) contrast(104%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.86) !important;
+      box-shadow: 0 9px 28px rgba(22, 35, 46, 0.09), inset 0 -1px 0 rgba(22, 35, 46, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    }
+    .cr-bottom-nav {
+      position: fixed;
+      left: 50%;
+      bottom: calc(10px + var(--cr-safe-bottom));
+      transform: translateX(-50%);
+      z-index: 1200;
+      width: calc(100% - 24px);
+      max-width: 406px;
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      padding: 6px;
+      isolation: isolate;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.94);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.55);
+      -webkit-backdrop-filter: blur(26px) saturate(150%) contrast(104%);
+      backdrop-filter: blur(26px) saturate(150%) contrast(104%);
+      box-shadow: 0 14px 36px rgba(22, 35, 46, 0.18), inset 0 0 0 1px rgba(22, 35, 46, 0.07), inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 0 rgba(22, 35, 46, 0.08);
+    }
+    .cr-bottom-nav::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: linear-gradient(112deg, rgba(255, 255, 255, 0.66) 0%, rgba(255, 255, 255, 0.12) 27%, transparent 48%, rgba(228, 87, 79, 0.07) 78%, rgba(240, 180, 41, 0.09) 100%);
+    }
+    .cr-bottom-nav > * { position: relative; z-index: 1; }
+    .cr-bottom-tab {
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 5px 2px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--cr-muted);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 750;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .cr-bottom-tab > span:first-child { font-size: 15px; line-height: 1; }
+    .cr-bottom-tab-active {
+      color: var(--cr-primary);
+      background: rgba(228, 87, 79, 0.11);
+      box-shadow: inset 0 0 0 1px rgba(228, 87, 79, 0.2), 0 3px 10px rgba(228, 87, 79, 0.08);
+    }
+    .cr-bottom-nav-five .cr-bottom-tab { font-size: 9px; padding-inline: 1px; }
+    .cr-glass-panel {
+      background: rgba(255, 255, 255, 0.5) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(138%) contrast(103%);
+      backdrop-filter: blur(22px) saturate(138%) contrast(103%);
+      border-color: rgba(255, 255, 255, 0.9) !important;
+      box-shadow: 0 12px 30px rgba(22, 35, 46, 0.11), inset 0 0 0 1px rgba(22, 35, 46, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(22, 35, 46, 0.08) !important;
+    }
+    .cr-glass-modal {
+      background: rgba(255, 255, 255, 0.9) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(125%);
+      backdrop-filter: blur(22px) saturate(125%);
+      border-color: rgba(255, 255, 255, 0.94) !important;
+      box-shadow: 0 18px 48px rgba(22, 35, 46, 0.24), inset 0 0 0 1px rgba(22, 35, 46, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.96) !important;
+    }
+    .cr-liquid-panel,
+    .cr-share-surface {
+      position: relative;
+      isolation: isolate;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.38)) !important;
+      -webkit-backdrop-filter: blur(24px) saturate(145%) contrast(104%);
+      backdrop-filter: blur(24px) saturate(145%) contrast(104%);
+      border: 1px solid rgba(255, 255, 255, 0.93) !important;
+      box-shadow:
+        0 16px 38px rgba(22, 35, 46, 0.14),
+        inset 0 0 0 1px rgba(22, 35, 46, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        inset 0 -1px 0 rgba(22, 35, 46, 0.09) !important;
+    }
+    .cr-liquid-panel::before,
+    .cr-share-surface::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background:
+        linear-gradient(112deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.14) 21%, transparent 39%),
+        linear-gradient(294deg, rgba(240, 180, 41, 0.09) 0%, transparent 35%),
+        linear-gradient(26deg, rgba(58, 123, 213, 0.07) 0%, transparent 31%);
+    }
+    .cr-liquid-panel::after,
+    .cr-share-surface::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      z-index: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 0 22px rgba(255, 255, 255, 0.26);
+    }
+    .cr-liquid-panel > *,
+    .cr-share-surface > * { position: relative; z-index: 1; }
+    .cr-share-surface { overflow: hidden; }
+    .cr-chart-well {
+      background: rgba(255, 255, 255, 0.34) !important;
+      border-color: rgba(255, 255, 255, 0.82) !important;
+      box-shadow: inset 0 0 0 1px rgba(22, 35, 46, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    }
+    .cr-standings-wrap {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      overflow-y: hidden;
+    }
+    .cr-standings-table {
+      width: 100%;
+      min-width: 0;
+      table-layout: fixed;
+    }
+    .cr-standings-table th,
+    .cr-standings-table td {
+      padding-left: 3px !important;
+      padding-right: 3px !important;
+      vertical-align: middle;
+    }
+    .cr-standings-table td {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cr-standings-alltime th:nth-child(1), .cr-standings-alltime td:nth-child(1) { width: 6%; }
+    .cr-standings-alltime th:nth-child(2), .cr-standings-alltime td:nth-child(2) { width: 25%; }
+    .cr-standings-alltime th:nth-child(3), .cr-standings-alltime td:nth-child(3) { width: 9%; }
+    .cr-standings-alltime th:nth-child(4), .cr-standings-alltime td:nth-child(4) { width: 11%; }
+    .cr-standings-alltime th:nth-child(5), .cr-standings-alltime td:nth-child(5) { width: 7%; }
+    .cr-standings-alltime th:nth-child(6), .cr-standings-alltime td:nth-child(6) { width: 16%; }
+    .cr-standings-alltime th:nth-child(7), .cr-standings-alltime td:nth-child(7) { width: 8%; }
+    .cr-standings-alltime th:nth-child(8), .cr-standings-alltime td:nth-child(8) { width: 10%; }
+    .cr-standings-alltime th:nth-child(9), .cr-standings-alltime td:nth-child(9) { width: 8%; }
+    .cr-standings-daily th:nth-child(1), .cr-standings-daily td:nth-child(1) { width: 6%; }
+    .cr-standings-daily th:nth-child(2), .cr-standings-daily td:nth-child(2) { width: 19%; }
+    .cr-standings-daily th:nth-child(3), .cr-standings-daily td:nth-child(3) { width: 9%; }
+    .cr-standings-daily th:nth-child(4), .cr-standings-daily td:nth-child(4) { width: 10%; }
+    .cr-standings-daily th:nth-child(5), .cr-standings-daily td:nth-child(5) { width: 6%; }
+    .cr-standings-daily th:nth-child(6), .cr-standings-daily td:nth-child(6) { width: 16%; }
+    .cr-standings-daily th:nth-child(7), .cr-standings-daily td:nth-child(7) { width: 8%; }
+    .cr-standings-daily th:nth-child(8), .cr-standings-daily td:nth-child(8) { width: 9%; }
+    .cr-standings-daily th:nth-child(9), .cr-standings-daily td:nth-child(9) { width: 9%; }
+    .cr-standings-daily th:nth-child(10), .cr-standings-daily td:nth-child(10) { width: 8%; }
+    @media (max-width: 380px) {
+      .cr-standings-table { font-size: 10px !important; }
+      .cr-standings-table th { padding-top: 5px !important; padding-bottom: 5px !important; font-size: 9px !important; }
+      .cr-standings-table td { padding-top: 8px !important; padding-bottom: 8px !important; }
+      .cr-standings-table td:nth-child(2),
+      .cr-standings-table td:nth-child(4) { font-size: 11px !important; }
+      .cr-standings-table td:nth-child(3) span {
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        font-size: 10px !important;
+        letter-spacing: 0 !important;
+      }
+    }
+    .cr-export-card {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: linear-gradient(145deg, #FFFFFF, #F8F7F4) !important;
+      box-shadow: inset 0 0 0 1px rgba(22, 35, 46, 0.07), inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+      border-radius: 0 !important;
+    }
+    .cr-export-card::before,
+    .cr-export-card::after {
+      display: none !important;
+    }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .cr-glass-header { background: #FAF7F2 !important; }
+      .cr-bottom-nav, .cr-glass-panel, .cr-glass-modal, .cr-liquid-panel, .cr-share-surface { background: #FFFFFF !important; }
+    }
     @keyframes shimmer {
       0% { background-position: 100% 0; }
       100% { background-position: -100% 0; }
@@ -157,6 +367,12 @@
       female: { label: "Wanita", short: "W", icon: "♀", color: "#BE185D", bg: "#FCE7F3", border: "#F9A8D4" },
     };
     const normalizeGender = (gender) => GENDER_OPTIONS[gender] ? gender : "unknown";
+    const matchBelongsToSession = (match, sessionId, firstSessionId) =>
+      match.sessionId === sessionId || (!match.sessionId && sessionId === firstSessionId);
+    const replaceMatchesInSession = (allMatches, generatedMatches, sessionId, firstSessionId) => [
+      ...allMatches.filter(match => !matchBelongsToSession(match, sessionId, firstSessionId)),
+      ...generatedMatches,
+    ];
     const INITIAL_MATCHES = [
       {
         id: "m1", courtId: 1, status: "done",
@@ -174,6 +390,113 @@
         games: [{ t1: 21, t2: 18 }, { t1: 21, t2: 20 }],
       },
     ];
+
+    async function createGlassExportBlob(element, { width = 430, scale = 2, quality = 0.92 } = {}) {
+      if (!element || !window.html2canvas) throw new Error("Panel belum siap untuk diekspor");
+
+      const stage = document.createElement("div");
+      stage.setAttribute("aria-hidden", "true");
+      Object.assign(stage.style, {
+        position: "fixed",
+        left: "-12000px",
+        top: "0",
+        width: `${width}px`,
+        padding: "16px",
+        boxSizing: "border-box",
+        color: "#16232E",
+        fontFamily: "'DM Sans', sans-serif",
+        backgroundColor: "#F6F3EE",
+        backgroundImage: "linear-gradient(180deg, #FBFAF7, #F6F3EE)",
+      });
+
+      const clone = element.cloneNode(true);
+      clone.removeAttribute("id");
+      clone.classList.add("cr-export-card");
+      Object.assign(clone.style, {
+        position: "relative",
+        left: "auto",
+        right: "auto",
+        top: "auto",
+        bottom: "auto",
+        width: "100%",
+        maxWidth: "none",
+        margin: "0",
+        pointerEvents: "none",
+        boxSizing: "border-box",
+      });
+      stage.appendChild(clone);
+      document.body.appendChild(stage);
+
+      try {
+        await document.fonts.ready;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const contentHeight = Math.max(stage.scrollHeight, 1);
+        const safeScale = Math.max(0.65, Math.min(scale, 28000 / contentHeight));
+        const canvas = await window.html2canvas(stage, {
+          backgroundColor: null,
+          scale: safeScale,
+          useCORS: true,
+          width,
+          height: contentHeight,
+          windowWidth: width,
+          scrollX: 0,
+          scrollY: 0,
+        });
+        const outputCanvas = document.createElement("canvas");
+        outputCanvas.width = canvas.width;
+        outputCanvas.height = canvas.height;
+        const ctx = outputCanvas.getContext("2d");
+        const stageGradient = ctx.createLinearGradient(0, 0, 0, outputCanvas.height);
+        stageGradient.addColorStop(0, "#FBFAF7");
+        stageGradient.addColorStop(1, "#F6F3EE");
+        ctx.fillStyle = stageGradient;
+        ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+        const scaleX = outputCanvas.width / width;
+        const scaleY = outputCanvas.height / contentHeight;
+        const padX = 16 * scaleX;
+        const padY = 16 * scaleY;
+        const cardWidth = outputCanvas.width - (padX * 2);
+        const cardHeight = outputCanvas.height - (padY * 2);
+        const radius = 18 * Math.min(scaleX, scaleY);
+        const roundedRect = () => {
+          ctx.beginPath();
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(padX, padY, cardWidth, cardHeight, radius);
+            return;
+          }
+          const right = padX + cardWidth;
+          const bottom = padY + cardHeight;
+          ctx.moveTo(padX + radius, padY);
+          ctx.lineTo(right - radius, padY);
+          ctx.quadraticCurveTo(right, padY, right, padY + radius);
+          ctx.lineTo(right, bottom - radius);
+          ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+          ctx.lineTo(padX + radius, bottom);
+          ctx.quadraticCurveTo(padX, bottom, padX, bottom - radius);
+          ctx.lineTo(padX, padY + radius);
+          ctx.quadraticCurveTo(padX, padY, padX + radius, padY);
+          ctx.closePath();
+        };
+        ctx.save();
+        roundedRect();
+        ctx.clip();
+        ctx.drawImage(canvas, 0, 0);
+        ctx.restore();
+        roundedRect();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.94)";
+        ctx.lineWidth = Math.max(1, scaleX);
+        ctx.stroke();
+
+        return await new Promise((resolve, reject) => outputCanvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error("Gambar tidak dapat dibuat")),
+          "image/jpeg",
+          quality,
+        ));
+      } finally {
+        stage.remove();
+      }
+    }
 
     // ==========================================
     // FIX #1: R diberikan untuk underdog berdasarkan selisih tier
@@ -394,7 +717,7 @@
 
       if (total < 2 || chart.focusIds.length === 0) {
         return (
-          <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 18, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
+          <div className="cr-liquid-panel" style={{ borderRadius: 18, padding: 14 }}>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700, color: "#16232E", textTransform: "uppercase" }}>Trend Ranking</div>
             <div style={{ fontSize: 12, color: "#617181", marginTop: 4 }}>Butuh minimal 2 sesi selesai untuk melihat pergerakan ranking All Time.</div>
           </div>
@@ -423,12 +746,7 @@
       const getChartBlob = async () => {
         const el = chartShareRef.current;
         if (!el || !window.html2canvas) throw new Error("Chart ranking belum siap");
-        const originalCss = el.style.cssText;
-        el.style.width = "430px";
-        el.style.maxWidth = "430px";
-        const canvas = await window.html2canvas(el, { backgroundColor: "#FAF7F2", scale: 2, useCORS: true });
-        el.style.cssText = originalCss;
-        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+        return createGlassExportBlob(el);
       };
 
       const handleDownloadChartImage = async () => {
@@ -467,8 +785,8 @@
       };
 
       return (
-        <div style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 18, padding: 14, boxShadow: "3px 3px 0 #16232E" }}>
-          <div ref={chartShareRef} style={{ background: "#FFFFFF", borderRadius: 14, padding: 0 }}>
+        <div style={{ background: "transparent", border: "none", borderRadius: 18, padding: 0, boxShadow: "none" }}>
+          <div ref={chartShareRef} className="cr-share-surface" style={{ borderRadius: 18, padding: 14 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700, color: "#16232E", textTransform: "uppercase" }}>Trend Ranking Top 5</div>
@@ -480,7 +798,7 @@
               ))}
             </div>
           </div>
-          <div style={{ border: "1px solid #16232E14", borderRadius: 14, background: "#FAF7F2", padding: "8px 6px 6px", overflowX: "auto" }}>
+          <div className="cr-chart-well" style={{ border: "1px solid #16232E14", borderRadius: 14, background: "#FAF7F2", padding: "8px 6px 6px", overflowX: "auto" }}>
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="220" role="img" aria-label="Trend ranking top 5 all time">
               {[1,2,3,4,5,6,7].map(rank => <g key={rank}><line x1={L} x2={W-R} y1={yFor(rank)} y2={yFor(rank)} stroke="#16232E" strokeOpacity={rank <= 5 ? 0.14 : 0.08} strokeDasharray={rank > 5 ? "3 4" : "0"} /><text x={8} y={yFor(rank)+4} fontSize="10" fontWeight="800" fill={rank <= 5 ? "#16232E" : "#9AA4AE"}>{rank}</text></g>)}
               {visibleLegendIds.map(id => {
@@ -524,12 +842,12 @@
 
     function repairStoredText(value) {
       if (typeof value !== "string") return value;
-      if (value.includes(" ")) return value.replace(/ +/g, "").trim();
+      if (value.includes("�")) return value.replace(/�+/g, "").trim();
       if (!/[ðÂâÎï]/.test(value)) return value;
       try {
         const bytes = Uint8Array.from(Array.from(value, ch => ch.charCodeAt(0) & 255));
         const decoded = new TextDecoder("utf-8").decode(bytes);
-        return decoded.includes(" ") ? "" : decoded;
+        return decoded.includes("�") ? "" : decoded;
       } catch (e) {
         return value;
       }
@@ -576,6 +894,7 @@
       const [autoRoundVariantCache, setAutoRoundVariantCache] = useState({});
       const [autoRoundMode, setAutoRoundMode] = useState("free");
       const [lockedAutoRoundsBySession, setLockedAutoRoundsBySession] = useState({});
+      const [expandedAutoRoundMatchIds, setExpandedAutoRoundMatchIds] = useState(() => new Set());
       const [players, setPlayers] = useState(INITIAL_PLAYERS);
       const [matches, setMatches] = useState(INITIAL_MATCHES);
       const [checkedInBySession, setCheckedInBySession] = useState({ s1: [1, 2, 3, 4, 5, 6, 7, 8] });
@@ -672,7 +991,7 @@
           if (data.currentSessionId) setCurrentSessionId(data.currentSessionId);
           const activeSessionId = data.currentSessionId || (data.sessions?.[0]?.id || "s1");
           const savedAutoRound = savedAutoRounds[activeSessionId];
-          setAutoRoundPreview(savedAutoRound?.matches?.length ? { ...savedAutoRound, locked: true } : null);
+          setAutoRoundPreview(savedAutoRound?.matches?.length ? savedAutoRound : null);
           if (data.githubGistId) setGithubGistId(data.githubGistId);
           else setGithubGistId("");
           const isReadOnlyData = !!data.readOnly;
@@ -881,7 +1200,7 @@
       useEffect(() => {
         const saved = lockedAutoRoundsBySession[currentSessionId];
         if (saved && saved.matches && saved.matches.length) {
-          setAutoRoundPreview({ ...saved, locked: true });
+          setAutoRoundPreview(saved);
         } else {
           setAutoRoundPreview(null);
         }
@@ -897,8 +1216,11 @@
       const ongoingMatches = useMemo(() =>
         currentSessionMatches.filter(m => m.status === "ongoing"), [currentSessionMatches]);
 
+      const autoRoundOngoingMatches = useMemo(() =>
+        ongoingMatches.filter(m => m.source === "auto-round"), [ongoingMatches]);
+
       const activePlayers = useMemo(() =>
-        new Set(ongoingMatches.flatMap(m => [...m.team1, ...m.team2])), [ongoingMatches]);
+        new Set(ongoingMatches.filter(m => m.source !== "auto-round" && !String(m.source || "").startsWith("match-workspace")).flatMap(m => [...m.team1, ...m.team2])), [ongoingMatches]);
 
       const availablePlayers = useMemo(() =>
         players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id)), [players, checkedIn, activePlayers]);
@@ -1020,7 +1342,7 @@
       }, [standingsHarian, checkedIn, useMCompensation]);
 
       const occupiedCourts = useMemo(() =>
-        new Set(ongoingMatches.map(m => m.courtId)), [ongoingMatches]);
+        new Set(ongoingMatches.filter(m => m.source !== "auto-round" && !String(m.source || "").startsWith("match-workspace") && Number.isFinite(m.courtId)).map(m => m.courtId)), [ongoingMatches]);
 
       const showNotify = (msg, type = "success") => {
         setNotify({ msg, type });
@@ -1194,21 +1516,7 @@
       const getStandingsBlob = async () => {
         const el = document.getElementById("standings-board");
         if (!el) throw new Error("Tabel klasemen tidak ditemukan");
-
-        await document.fonts.ready;
-
-        const originalCss = el.style.cssText;
-        el.style.width = "max-content";
-        el.style.minWidth = "100%";
-
-        const canvas = await window.html2canvas(el, {
-          backgroundColor: "#FAF7F2",
-          scale: 2,
-          useCORS: true
-        });
-
-        el.style.cssText = originalCss;
-        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+        return createGlassExportBlob(el);
       };
 
       const handleDownloadImage = async () => {
@@ -1748,9 +2056,164 @@
         return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length, playerCount: baseAvail.length, focus, roundMode: roundMode === "mixed" ? "mixed" : "free", mixedMatchCount: planned.filter(m => m.mixType === "mixed").length, extraMatches: safeExtraMatches, baseMatchCount, repeatPlayerIds: repeatPlayers.map(p => p.id) };
       };
 
+      const buildMatchSchedule = (focus, requestedCount, roundMode, historyMatches = matches) => {
+        const available = players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id));
+        if (available.length < 4) return { error: "Butuh minimal 4 pemain yang hadir dan tersedia." };
+        const males = available.filter(p => normalizeGender(p.gender) === "male");
+        const females = available.filter(p => normalizeGender(p.gender) === "female");
+        const strictMixedAvailable = males.length >= 2 && females.length >= 2;
+        const tierWeight = player => TIER_WEIGHT[player?.tier] || TIER_WEIGHT.E;
+        const nearestSubstitutes = (targetPool, candidatePool, needed) => {
+          if (needed <= 0 || candidatePool.length === 0) return [];
+          const targetWeights = targetPool.map(tierWeight);
+          const targetMax = targetWeights.length ? Math.max(...targetWeights) : 0;
+          return candidatePool.slice().sort((a, b) => {
+            const aw = tierWeight(a), bw = tierWeight(b);
+            const aGap = targetWeights.length ? Math.min(...targetWeights.map(weight => Math.abs(weight - aw))) : 0;
+            const bGap = targetWeights.length ? Math.min(...targetWeights.map(weight => Math.abs(weight - bw))) : 0;
+            const aTooStrong = targetWeights.length && aw > targetMax ? 1 : 0;
+            const bTooStrong = targetWeights.length && bw > targetMax ? 1 : 0;
+            return aTooStrong - bTooStrong || aGap - bGap || aw - bw;
+          }).slice(0, needed);
+        };
+        const femaleWeights = females.map(p => TIER_WEIGHT[p.tier] || TIER_WEIGHT.E);
+        const maleWeights = males.map(p => TIER_WEIGHT[p.tier] || TIER_WEIGHT.E);
+        const maleSubstitutes = females.length > 0 && females.length < 4 ? nearestSubstitutes(females, males, 4 - females.length) : [];
+        const femaleSubstitutes = males.length > 0 && males.length < 4 ? nearestSubstitutes(males, females, 4 - males.length) : [];
+        const adjustedFemalePool = females.length >= 4 ? females : [...females, ...maleSubstitutes];
+        const adjustedMalePool = males.length >= 4 ? males : [...males, ...femaleSubstitutes];
+        const count = Math.max(1, Math.min(500, Math.floor(Number(requestedCount) || Math.ceil(available.length / 4))));
+        const freeCourts = courts.filter(c => !occupiedCourts.has(c));
+        const usage = new Map(available.map(p => [p.id, 0]));
+        const recent = new Map();
+        const firstSessionId = sessions[0]?.id || "s1";
+        // Rotation memakai seluruh riwayat Arena; usage menjaga batch yang sedang dibuat tetap merata.
+        const countedHistoryMatches = historyMatches.filter(m => m.status === "done" || m.status === "ongoing");
+        const historySessionMatches = countedHistoryMatches.filter(m =>
+          m.sessionId === currentSessionId || (!m.sessionId && currentSessionId === firstSessionId)
+        );
+        const allTimeBaseline = new Map(available.map(p => [p.id, countedHistoryMatches.filter(m =>
+          [...(m.team1 || []), ...(m.team2 || [])].includes(p.id)).length]));
+        const sessionBaseline = new Map(available.map(p => [p.id, historySessionMatches.filter(m =>
+          [...(m.team1 || []), ...(m.team2 || [])].includes(p.id)).length]));
+        const partnerHistory = new Map();
+        const opponentHistory = new Map();
+        const pairKey = (a, b) => [a, b].sort((x, y) => String(x).localeCompare(String(y))).join("|");
+        const addPair = (map, a, b) => { const key = pairKey(a, b); map.set(key, (map.get(key) || 0) + 1); };
+        historyMatches.forEach(m => {
+          if (m.team1.length === 2 && m.team2.length === 2) {
+            addPair(partnerHistory, m.team1[0], m.team1[1]);
+            addPair(partnerHistory, m.team2[0], m.team2[1]);
+            m.team1.forEach(a => m.team2.forEach(b => addPair(opponentHistory, a, b)));
+          }
+        });
+        const rankPool = pool => pool.map(p => ({ p, random: Math.random() })).sort((a, b) => {
+          if (focus === "rotation") {
+            const aAllTime = (allTimeBaseline.get(a.p.id) || 0) + (usage.get(a.p.id) || 0);
+            const bAllTime = (allTimeBaseline.get(b.p.id) || 0) + (usage.get(b.p.id) || 0);
+            const aSession = (sessionBaseline.get(a.p.id) || 0) + (usage.get(a.p.id) || 0);
+            const bSession = (sessionBaseline.get(b.p.id) || 0) + (usage.get(b.p.id) || 0);
+            return aAllTime - bAllTime || aSession - bSession || (usage.get(a.p.id) - usage.get(b.p.id)) || a.random - b.random;
+          }
+          return (usage.get(a.p.id) - usage.get(b.p.id)) || (sessionBaseline.get(a.p.id) - sessionBaseline.get(b.p.id)) || a.random - b.random;
+        }).slice(0, 12).map(item => item.p);
+        const planned = [];
+        for (let scheduleNo = 1; scheduleNo <= count; scheduleNo++) {
+          const groups = [];
+          const makeGroups = pool => {
+            for (let a = 0; a < pool.length - 3; a++) for (let b = a + 1; b < pool.length - 2; b++)
+              for (let c = b + 1; c < pool.length - 1; c++) for (let d = c + 1; d < pool.length; d++)
+                groups.push([pool[a], pool[b], pool[c], pool[d]]);
+          };
+          if (roundMode === "mixed") {
+            if (strictMixedAvailable) {
+              const men = rankPool(males).slice(0, 8);
+              const women = rankPool(females).slice(0, 8);
+              for (let a = 0; a < men.length - 1; a++) for (let b = a + 1; b < men.length; b++)
+                for (let c = 0; c < women.length - 1; c++) for (let d = c + 1; d < women.length; d++)
+                  groups.push([men[a], men[b], women[c], women[d]]);
+            } else makeGroups(rankPool(available));
+          } else if (roundMode === "same") {
+            if (males.length >= 4) makeGroups(rankPool(males));
+            else if (adjustedMalePool.length >= 4) makeGroups(rankPool(adjustedMalePool));
+            if (females.length >= 4) makeGroups(rankPool(females));
+            else if (adjustedFemalePool.length >= 4) makeGroups(rankPool(adjustedFemalePool));
+            if (groups.length === 0) makeGroups(rankPool(available));
+          } else makeGroups(rankPool(available));
+          let best = null;
+          groups.forEach(group => {
+            const ids = group.map(p => p.id);
+            const plays = ids.map(id => usage.get(id));
+            const load = plays.reduce((sum, n) => sum + n, 0);
+            const spread = Math.max(...plays) - Math.min(...plays);
+            const allTimeCounts = ids.map(id => (allTimeBaseline.get(id) || 0) + (usage.get(id) || 0));
+            const sessionCounts = ids.map(id => (sessionBaseline.get(id) || 0) + (usage.get(id) || 0));
+            const allTimeTotalPlayed = allTimeCounts.reduce((sum, value) => sum + value, 0);
+            const sessionTotalPlayed = sessionCounts.reduce((sum, value) => sum + value, 0);
+            const allTimeSpread = Math.max(...allTimeCounts) - Math.min(...allTimeCounts);
+            const sessionSpread = Math.max(...sessionCounts) - Math.min(...sessionCounts);
+            const minAllTimePlayed = Math.min(...available.map(player => (allTimeBaseline.get(player.id) || 0) + (usage.get(player.id) || 0)));
+            const minSessionPlayed = Math.min(...available.map(player => (sessionBaseline.get(player.id) || 0) + (usage.get(player.id) || 0)));
+            const allTimeBehindCount = allTimeCounts.filter(value => value === minAllTimePlayed).length;
+            const sessionBehindCount = sessionCounts.filter(value => value === minSessionPlayed).length;
+            const rotationScore = (allTimeTotalPlayed * 100000) + (sessionTotalPlayed * 1000) + (allTimeSpread * 200) + (sessionSpread * 50) - (allTimeBehindCount * 500) - (sessionBehindCount * 100);
+            const recentPenalty = ids.reduce((sum, id) => sum + (scheduleNo - (recent.get(id) || -100) <= Math.max(1, Math.floor(available.length / 4)) ? 1 : 0), 0);
+            const pairings = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]];
+            pairings.forEach(([left, right]) => {
+              const team1 = left.map(i => ids[i]);
+              const team2 = right.map(i => ids[i]);
+              const validMixedTeams = [team1, team2].every(team =>
+                team.some(id => normalizeGender(players.find(p => p.id === id)?.gender) === "male") &&
+                team.some(id => normalizeGender(players.find(p => p.id === id)?.gender) === "female"));
+              if (roundMode === "mixed" && strictMixedAvailable && !validMixedTeams) return;
+              const weight = team => team.map(id => TIER_WEIGHT[players.find(p => p.id === id)?.tier] || TIER_WEIGHT.E);
+              const w1 = weight(team1);
+              const w2 = weight(team2);
+              const diff = Math.abs(w1[0] + w1[1] - w2[0] - w2[1]);
+              const pairGap = Math.abs(w1[0] - w1[1]) + Math.abs(w2[0] - w2[1]);
+              const repeat = (partnerHistory.get(pairKey(...team1)) || 0) + (partnerHistory.get(pairKey(...team2)) || 0);
+              const opponents = team1.reduce((sum, a) => sum + team2.reduce((n, b) => n + (opponentHistory.get(pairKey(a, b)) || 0), 0), 0);
+              const quality = focus === "tier" ? diff * 8 + pairGap * 1.5 : diff * 0.35 + pairGap * 0.15;
+              const groupGenders = new Set(group.map(player => normalizeGender(player.gender)));
+              const fillsFemaleGroup = females.length > 0 && females.length < 4 && groupGenders.has("female") && groupGenders.has("male");
+              const fillsMaleGroup = males.length > 0 && males.length < 4 && groupGenders.has("male") && groupGenders.has("female");
+              const adjustedGroupPriority = roundMode === "same" && (fillsFemaleGroup || fillsMaleGroup) ? -50000 : 0;
+              const mixedFallbackPenalty = roundMode === "mixed" && !validMixedTeams ? [team1, team2].reduce((sum, team) => {
+                const teamPlayers = team.map(id => players.find(player => player.id === id)).filter(Boolean);
+                const teamGenders = new Set(teamPlayers.map(player => normalizeGender(player.gender)));
+                if (teamGenders.has("male") && teamGenders.has("female")) return sum;
+                const targetWeights = teamGenders.has("male") ? femaleWeights : maleWeights;
+                const substituteWeight = tierWeight(teamPlayers.slice().sort((a, b) => tierWeight(a) - tierWeight(b))[0]);
+                const nearestGap = targetWeights.length ? Math.min(...targetWeights.map(value => Math.abs(value - substituteWeight))) : Math.abs(tierWeight(teamPlayers[0]) - tierWeight(teamPlayers[1]));
+                return sum + 6000 + nearestGap * 20;
+              }, 0) : 0;
+              const repeatWeight = focus === "rotation" ? 6500 : 350;
+              const opponentWeight = focus === "rotation" ? 1400 : 90;
+              const rotationPriority = rotationScore * 1000;
+              const tierPriority = load * 100000 + spread * 3000 + sessionTotalPlayed * 250;
+              const score = (focus === "rotation" ? rotationPriority : tierPriority) + recentPenalty * 1200 + quality + repeat * repeatWeight + opponents * opponentWeight + mixedFallbackPenalty + adjustedGroupPriority + Math.random() * 30;
+              const actualGenders = new Set(ids.map(id => normalizeGender(players.find(p => p.id === id)?.gender)));
+              const pureKnownGender = actualGenders.size === 1 && (actualGenders.has("male") || actualGenders.has("female"));
+              const genderAdjusted = (roundMode === "same" && !pureKnownGender) || (roundMode === "mixed" && !validMixedTeams);
+              if (!best || score < best.score) best = { score, team1, team2, diff, genderAdjusted };
+            });
+          });
+          if (!best) return { error: "Tidak bisa membuat kombinasi match untuk mode ini." };
+          [...best.team1, ...best.team2].forEach(id => { usage.set(id, usage.get(id) + 1); recent.set(id, scheduleNo); });
+          addPair(partnerHistory, ...best.team1);
+          addPair(partnerHistory, ...best.team2);
+          best.team1.forEach(a => best.team2.forEach(b => addPair(opponentHistory, a, b)));
+          planned.push({ team1: best.team1, team2: best.team2, diff: best.diff, court: freeCourts[scheduleNo - 1] || null,
+            scheduleNo, mode: "double", mixType: roundMode, genderAdjusted: !!best.genderAdjusted });
+        }
+        const repeated = [...usage].filter(([, times]) => times > 1).map(([id]) => id);
+        return { matches: planned, generatedAt: Date.now(), freeCourtCount: freeCourts.length,
+          playerCount: available.length, focus, roundMode, matchCount: count, repeatPlayerIds: repeated };
+      };
+
       const getAutoRoundCacheKey = (focus = "rotation", extraMatches = 0, roundModeOverride = autoRoundMode) => {
         const safeFocus = focus === "tier" ? "tier" : "rotation";
-        const safeRoundMode = roundModeOverride === "mixed" ? "mixed" : "free";
+        const safeRoundMode = ["mixed", "same"].includes(roundModeOverride) ? roundModeOverride : "free";
         const availableIds = players
           .filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id))
           .map(p => p.id)
@@ -1763,26 +2226,25 @@
         return `${currentSessionId}|${safeRoundMode}|${safeFocus}|${Number(extraMatches) || 0}|${availableIds}|${matchSignature}`;
       };
 
-      const handleAutoRound = (focus = "rotation", extraMatches = 0, roundModeOverride = autoRoundMode, forceShuffle = false) => {
+      const handleAutoRound = (focus = "rotation", requestedCount = null, roundModeOverride = autoRoundMode, forceShuffle = false) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const safeFocus = focus === "tier" ? "tier" : "rotation";
-        const safeRoundMode = roundModeOverride === "mixed" ? "mixed" : "free";
-        const cacheKey = getAutoRoundCacheKey(safeFocus, extraMatches, safeRoundMode);
+        const safeRoundMode = ["mixed", "same"].includes(roundModeOverride) ? roundModeOverride : "free";
+        const defaultCount = Math.ceil(players.filter(p => checkedIn.has(p.id) && !activePlayers.has(p.id)).length / 4);
+        const matchCount = requestedCount == null ? defaultCount : requestedCount;
+        const cacheKey = getAutoRoundCacheKey(safeFocus, matchCount, safeRoundMode);
         setAutoRoundMode(safeRoundMode);
         if (!forceShuffle && autoRoundVariantCache[cacheKey]) {
-          setAutoRoundPreview(autoRoundVariantCache[cacheKey]);
+          const cached = autoRoundVariantCache[cacheKey];
+          setAutoRoundPreview(cached);
+          setLockedAutoRoundsBySession(prev => ({ ...prev, [currentSessionId]: cached }));
           return;
         }
-        const plan = buildAutoRoundPlan(true, safeFocus, extraMatches, safeRoundMode);
+        const plan = buildMatchSchedule(safeFocus, matchCount, safeRoundMode);
         if (plan.error) { showNotify(plan.error, "error"); return; }
         setAutoRoundVariantCache(prev => ({ ...prev, [cacheKey]: plan }));
         setAutoRoundPreview(plan);
-        setLockedAutoRoundsBySession(prev => {
-          if (!prev[currentSessionId]) return prev;
-          const next = { ...prev };
-          delete next[currentSessionId];
-          return next;
-        });
+        setLockedAutoRoundsBySession(prev => ({ ...prev, [currentSessionId]: plan }));
       };
 
       const handleAutoRoundLockChange = (nextLocked) => {
@@ -1791,11 +2253,92 @@
           const nextPreview = { ...prev, locked: nextLocked };
           setLockedAutoRoundsBySession(saved => {
             const next = { ...saved };
-            if (nextLocked) next[currentSessionId] = nextPreview;
-            else delete next[currentSessionId];
+            next[currentSessionId] = nextPreview;
             return next;
           });
           return nextPreview;
+        });
+      };
+
+      const handleEditAutoRoundMatch = (scheduleNo, teamKey, slot, selectedId) => {
+        const id = Number(selectedId);
+        const current = autoRoundPreview?.matches?.find(m => m.scheduleNo === scheduleNo);
+        if (!current || !players.some(p => p.id === id && checkedIn.has(id))) return;
+        const nextMatch = { ...current, team1: [...current.team1], team2: [...current.team2] };
+        const oldId = nextMatch[teamKey][slot];
+        const existingSlot = ["team1", "team2"].flatMap(team => nextMatch[team].map((playerId, index) => ({ team, index, playerId }))).find(item => item.playerId === id);
+        nextMatch[teamKey][slot] = id;
+        if (existingSlot) nextMatch[existingSlot.team][existingSlot.index] = oldId;
+        const gender = playerId => normalizeGender(players.find(p => p.id === playerId)?.gender);
+        const validMixed = [nextMatch.team1, nextMatch.team2].every(team => team.some(pid => gender(pid) === "male") && team.some(pid => gender(pid) === "female"));
+        const allIds = [...nextMatch.team1, ...nextMatch.team2];
+        const femaleIds = allIds.filter(pid => gender(pid) === "female");
+        const maleIds = allIds.filter(pid => gender(pid) === "male");
+        const femaleWeights = femaleIds.map(pid => TIER_WEIGHT[players.find(p => p.id === pid)?.tier] || TIER_WEIGHT.E);
+        const validAdjustedSame = femaleIds.length > 0 && maleIds.length > 0 && maleIds.every(pid => {
+          const maleWeight = TIER_WEIGHT[players.find(p => p.id === pid)?.tier] || TIER_WEIGHT.E;
+          return maleWeight <= Math.max(...femaleWeights) && Math.min(...femaleWeights.map(w => Math.abs(w - maleWeight))) <= 100;
+        });
+        const validSame = allIds.every(pid => gender(pid) === "male") || allIds.every(pid => gender(pid) === "female") || validAdjustedSame;
+        if ((autoRoundPreview.roundMode === "mixed" && !validMixed) || (autoRoundPreview.roundMode === "same" && !validSame)) {
+          showNotify(autoRoundPreview.roundMode === "mixed" ? "Tiap tim harus berisi 1 pria dan 1 wanita." : "Gunakan gender sama, atau pria tier rendah yang dekat dengan tier wanita.", "error");
+          return;
+        }
+        nextMatch.genderAdjusted = autoRoundPreview.roundMode === "same" && validAdjustedSame;
+        const weight = team => team.reduce((sum, pid) => sum + (TIER_WEIGHT[players.find(p => p.id === pid)?.tier] || TIER_WEIGHT.E), 0);
+        nextMatch.diff = Math.abs(weight(nextMatch.team1) - weight(nextMatch.team2));
+        setAutoRoundPreview(prev => {
+          const next = { ...prev, matches: prev.matches.map(m => m.scheduleNo === scheduleNo ? nextMatch : m) };
+          setLockedAutoRoundsBySession(saved => ({ ...saved, [currentSessionId]: next }));
+          return next;
+        });
+        setAutoRoundVariantCache({});
+      };
+
+      const handleConfirmAutoRounds = () => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
+        const planned = autoRoundPreview?.matches || [];
+        if (!planned.length) return showNotify("Belum ada jadwal untuk dikonfirmasi.", "error");
+        const confirmedAt = Date.now();
+        const previousAutoMatches = currentSessionMatches.filter(m => m.source === "auto-round");
+        const scheduleStart = Math.max(
+          previousAutoMatches.length,
+          previousAutoMatches.reduce((max, m) => Math.max(max, Number(m.scheduleNo) || 0), 0)
+        );
+        const tierSnapshot = {};
+        players.forEach(p => { tierSnapshot[p.id] = p.tier; });
+        const confirmedMatches = planned.map((plannedMatch, idx) => ({
+          id: `m${confirmedAt}_auto_${idx + 1}`,
+          courtId: null,
+          status: "ongoing",
+          source: "auto-round",
+          scheduleNo: scheduleStart + idx + 1,
+          team1: [...plannedMatch.team1],
+          team2: [...plannedMatch.team2],
+          games: [{ t1: 0, t2: 0 }],
+          sessionId: currentSessionId,
+          tierSnapshot: { ...tierSnapshot },
+          mixType: plannedMatch.mixType || autoRoundPreview.roundMode || "free",
+          genderAdjusted: !!plannedMatch.genderAdjusted,
+          confirmedAt,
+        }));
+        setMatches(prev => [...prev, ...confirmedMatches]);
+        setAutoRoundPreview(null);
+        setAutoRoundVariantCache({});
+        setLockedAutoRoundsBySession(prev => {
+          const next = { ...prev };
+          delete next[currentSessionId];
+          return next;
+        });
+        showNotify(`${confirmedMatches.length} match dikonfirmasi dan masuk ke Match Berlangsung.`, "success");
+      };
+
+      const handleCloseAutoRound = () => {
+        setAutoRoundPreview(null);
+        setLockedAutoRoundsBySession(prev => {
+          const next = { ...prev };
+          delete next[currentSessionId];
+          return next;
         });
       };
 
@@ -1830,14 +2373,12 @@
           if (!prev) return null;
           const nextMatches = (prev.matches || []).filter(m => m.scheduleNo !== plannedMatch.scheduleNo);
           const nextPreview = nextMatches.length ? { ...prev, matches: nextMatches } : null;
-          if (prev.locked) {
-            setLockedAutoRoundsBySession(saved => {
-              const next = { ...saved };
-              if (nextPreview) next[currentSessionId] = nextPreview;
-              else delete next[currentSessionId];
-              return next;
-            });
-          }
+          setLockedAutoRoundsBySession(saved => {
+            const next = { ...saved };
+            if (nextPreview) next[currentSessionId] = nextPreview;
+            else delete next[currentSessionId];
+            return next;
+          });
           return nextPreview;
         });
         showNotify(`Match ${plannedMatch.scheduleNo || "jadwal"} masuk ke Lapangan ${freeCourt}.`, "success");
@@ -1879,37 +2420,139 @@
         showNotify(`Match manual di Lapangan ${manualCourt} dimulai!`);
       };
 
-      const handleSubmitScore = (matchId, games, newTeam1, newTeam2, finishMatch) => {
+      const updateCurrentSession = (field, value) => {
+        if (readOnly) return;
+        setSessions(prev => prev.map(session => session.id === currentSessionId ? { ...session, [field]: value } : session));
+      };
+
+      const handleWorkspaceGenerate = (config, onComplete) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
-        const cleanGames = games.map(g => ({ t1: Number(g?.t1) || 0, t2: Number(g?.t2) || 0 }));
-        const hasAnyScore = cleanGames.some(g => g.t1 > 0 || g.t2 > 0);
-        if (finishMatch && !hasAnyScore) {
-          showNotify("Isi poin dulu sebelum menyelesaikan match.", "error");
+        const requestedCount = Math.floor(Number(config.count));
+        if (!Number.isFinite(requestedCount) || requestedCount < 1 || requestedCount > 500) {
+          showNotify("Masukkan jumlah match antara 1 sampai 500.", "error");
           return;
         }
+        const modeMap = { mix: "mixed", gender: "same", random: "free" };
+        const roundMode = modeMap[config.pairFormat];
+        if (!roundMode || !["rotation", "tier"].includes(config.pattern)) {
+          showNotify("Lengkapi Pair Format dan Generation Pattern.", "error");
+          return;
+        }
+        const firstSessionId = sessions[0]?.id || "s1";
+        const belongsToCurrentSession = match => matchBelongsToSession(match, currentSessionId, firstSessionId);
+        const contextMatches = config.action === "replace" ? matches.filter(match => !belongsToCurrentSession(match)) : matches;
+        const previewMatches = Array.isArray(config.previewMatches) && config.previewMatches.length ? config.previewMatches : null;
+        const schedule = previewMatches
+          ? { matches: previewMatches }
+          : buildMatchSchedule(config.pattern, requestedCount, roundMode, contextMatches);
+        if (schedule.error || !schedule.matches?.length) {
+          showNotify(schedule.error || "Kombinasi match tidak dapat dibuat.", "error");
+          return;
+        }
+
+        const generatedAt = Date.now();
+        const existing = config.action === "replace" ? [] : currentSessionMatches;
+        const startNo = existing.reduce((max, match, index) => Math.max(max, Number(match.scheduleNo) || index + 1), 0);
+        const tierSnapshot = {};
+        players.forEach(player => { tierSnapshot[player.id] = player.tier; });
+        const generated = schedule.matches.map((planned, index) => ({
+          id: `m${generatedAt}_workspace_${index + 1}`,
+          courtId: null,
+          status: "ongoing",
+          source: "match-workspace",
+          scheduleNo: startNo + index + 1,
+          team1: [...planned.team1],
+          team2: [...planned.team2],
+          games: [{ t1: 0, t2: 0 }],
+          sessionId: currentSessionId,
+          tierSnapshot: { ...tierSnapshot },
+          pairFormat: config.pairFormat,
+          generationPattern: config.pattern,
+          mixType: planned.mixType || roundMode,
+          genderAdjusted: !!planned.genderAdjusted,
+          generationBatch: generatedAt,
+        }));
+
+        if (config.previewOnly) {
+          if (onComplete) onComplete(generated);
+          return;
+        }
+
+        const applyGeneratedMatches = () => {
+          setMatches(prev => {
+            if (config.action !== "replace") return [...prev, ...generated];
+            return replaceMatchesInSession(prev, generated, currentSessionId, firstSessionId);
+          });
+          setAutoRoundPreview(null);
+          setLockedAutoRoundsBySession(prev => {
+            const next = { ...prev };
+            delete next[currentSessionId];
+            return next;
+          });
+          setConfirmDialog(null);
+          showNotify(`${generated.length} match berhasil ${config.action === "replace" ? `menggantikan match di ${currentSession?.label || "sesi aktif"}` : "ditambahkan"}.`, "success");
+          if (onComplete) onComplete();
+        };
+
+        if (config.action === "replace" && currentSessionMatches.length > 0 && !config.previewConfirmed) {
+          setConfirmDialog({
+            title: "Ganti Match Sesi Ini?",
+            message: `Hanya ${currentSessionMatches.length} match pada ${currentSession?.label || "sesi aktif"} yang akan diganti dengan ${schedule.matches.length} match baru. Match dari sesi lain dan seluruh data kompetisi tetap tersimpan.`,
+            isDanger: true,
+            confirmText: "Ganti",
+            onConfirm: applyGeneratedMatches,
+          });
+          return;
+        }
+        applyGeneratedMatches();
+      };
+
+      const handleWorkspaceManualMatch = (selectedIds, onComplete) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
+        if (![2, 4].includes(selectedIds.length) || new Set(selectedIds).size !== selectedIds.length) {
+          showNotify("Pilih 2 pemain untuk single atau 4 pemain untuk double.", "error");
+          return;
+        }
+        if (selectedIds.some(id => !checkedIn.has(id))) {
+          showNotify("Match manual hanya dapat memakai pemain yang dipilih pada sesi.", "error");
+          return;
+        }
+        const tierSnapshot = {};
+        players.forEach(player => { tierSnapshot[player.id] = player.tier; });
+        const scheduleNo = currentSessionMatches.reduce((max, match, index) => Math.max(max, Number(match.scheduleNo) || index + 1), 0) + 1;
+        const split = selectedIds.length === 2 ? 1 : 2;
+        const now = Date.now();
+        setMatches(prev => [...prev, {
+          id: `m${now}_manual`, courtId: null, status: "ongoing", source: "match-workspace-manual",
+          scheduleNo, team1: selectedIds.slice(0, split), team2: selectedIds.slice(split),
+          games: [{ t1: 0, t2: 0 }], sessionId: currentSessionId, tierSnapshot,
+          pairFormat: "manual", generationPattern: "manual", generationBatch: now,
+        }]);
+        showNotify(`Match ${scheduleNo} berhasil ditambahkan.`, "success");
+        if (onComplete) onComplete();
+      };
+
+      const handleUpdateMatchPlayers = (matchId, newTeam1, newTeam2) => {
+        if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         setMatches(prev => prev.map(m =>
           m.id === matchId ? {
             ...m,
-            games: cleanGames,
             team1: newTeam1,
             team2: newTeam2,
-            status: finishMatch ? "done" : m.status
+            tierSnapshot: [...newTeam1, ...newTeam2].reduce((snapshot, playerId) => {
+              snapshot[playerId] = players.find(player => player.id === playerId)?.tier || snapshot[playerId] || "E";
+              return snapshot;
+            }, { ...(m.tierSnapshot || {}) }),
           } : m
         ));
-        setScoreModal(null);
-        showNotify("Data pertandingan berhasil diperbarui!");
       };
 
       const handleUpdateOngoingScore = (matchId, games, finishMatch = false) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
         const cleanGames = games.map(g => ({ t1: Number(g?.t1) || 0, t2: Number(g?.t2) || 0 }));
         const hasAnyScore = cleanGames.some(g => g.t1 > 0 || g.t2 > 0);
-        if (finishMatch && !hasAnyScore) {
-          showNotify("Isi poin dulu sebelum menyelesaikan match.", "error");
-          return;
-        }
-        setMatches(prev => prev.map(m => m.id === matchId ? { ...m, games: cleanGames, status: finishMatch ? "done" : m.status } : m));
-        if (finishMatch) showNotify("Match selesai dan masuk klasemen.", "success");
+        setMatches(prev => prev.map(m => m.id === matchId ? { ...m, games: cleanGames, status: hasAnyScore ? "done" : "ongoing" } : m));
+        if (finishMatch && hasAnyScore) showNotify("Skor tersimpan dan match tercatat selesai.", "success");
       };
       const handleDeleteMatch = (matchId) => {
         if (readOnly) return showNotify("Mode lihat saja: data tidak bisa diedit.", "error");
@@ -2324,6 +2967,8 @@
           setNewPlayerName={setNewPlayerName}
           newPlayerTier={newPlayerTier}
           setNewPlayerTier={setNewPlayerTier}
+          newPlayerGender={newPlayerGender}
+          setNewPlayerGender={setNewPlayerGender}
         />
         {editingPlayer && (
           <EditPlayerModal
@@ -2364,7 +3009,7 @@
         )}
         {confirmDialog && (
           <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "20px 16px calc(20px + var(--cr-safe-bottom))" }} onClick={() => setConfirmDialog(null)}>
-            <div style={{ background: "var(--cr-surface)", borderRadius: "24px 24px 18px 18px", padding: 20, width: "100%", maxWidth: 390, border: "2px solid var(--cr-line)", textAlign: "center", boxShadow: "var(--cr-shadow-hard)" }} onClick={e => e.stopPropagation()}>
+            <div className="cr-glass-modal" style={{ background: "var(--cr-surface)", borderRadius: "24px 24px 18px 18px", padding: 20, width: "100%", maxWidth: 390, border: "2px solid var(--cr-line)", textAlign: "center", boxShadow: "var(--cr-shadow-hard)" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: confirmDialog.isDanger ? "#E4574F" : "#16232E" }}>{confirmDialog.title}</div>
               <div style={{ fontSize: 13, color: "#44515E", marginBottom: 24, lineHeight: 1.5 }}>{confirmDialog.message}</div>
               <div style={{ display: "flex", gap: 10 }}>
@@ -2400,17 +3045,17 @@
 
       return (
         <div style={{
-          minHeight: "100dvh", background: "var(--cr-bg)",
+          minHeight: "100dvh", background: "transparent",
           color: "var(--cr-ink)", maxWidth: 430, margin: "0 auto",
           position: "relative", overflowX: "hidden",
         }}>
           {/* Header */}
-          <div style={{
+          <div className="cr-glass-header" style={{
             background: "rgba(250,247,242,0.96)", backdropFilter: "blur(12px)",
-            borderBottom: "2px solid var(--cr-line)", padding: "calc(12px + var(--cr-safe-top)) 16px 0",
+            borderBottom: "2px solid var(--cr-line)", padding: "calc(12px + var(--cr-safe-top)) 16px 12px",
             position: "sticky", top: 0, zIndex: 100,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button aria-label="Kembali" onClick={() => goBackInApp(() => setScreen("session"))} style={{ width: 44, height: 44, background: "#16232E10", border: "1px solid #16232E12", borderRadius: 16, padding: 0, color: "#44515E", fontSize: 18, cursor: "pointer", flex: "0 0 auto" }}>←</button>
               <div style={{
                 width: 40, height: 40, borderRadius: 14,
@@ -2423,7 +3068,7 @@
                   {workspaces.find(w => w.id === workspaceId)?.emoji || "🎾"} {workspaces.find(w => w.id === workspaceId)?.name || "CourtRank"}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--cr-muted)", marginTop: 2, fontWeight: 500 }}>
-                  {checkedIn.size} hadir · {ongoingMatches.length} match berlangsung
+                  {checkedIn.size} pemain · {currentSessionMatches.length} match di sesi
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -2432,33 +3077,34 @@
                 {gistStatus === "error" && <span style={{ fontSize: 10, color: "#E4574F" }}>❌ Gagal</span>}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 0, borderTop: "2px solid var(--cr-line)" }}>
-              {[
-                { key: "courts", icon: "🏸", text: "Match" },
-                { key: "standings", icon: "📋", text: "Klasemen" },
-                { key: "stats", icon: "📊", text: "Statistik" },
-                { key: "settings", icon: "⚙️", text: "Atur" },
-              ].map(t => (
-                <button key={t.key} onClick={() => setTab(t.key)} style={{
-                  flex: 1, minWidth: 0, height: 48, background: "none", border: "none", cursor: "pointer",
-                  padding: "0 2px", fontSize: 12, fontWeight: tab === t.key ? 800 : 600,
-                  color: tab === t.key ? "#E4574F" : "#617181",
-                  borderBottom: tab === t.key ? "3px solid #E4574F" : "3px solid transparent",
-                  transition: "color 0.15s, border-color 0.15s",
-                }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, width: "100%", whiteSpace: "nowrap", lineHeight: 1 }}>
-                    <span style={{ flex: "0 0 auto", fontSize: 12 }}>{t.icon}</span>
-                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
           </div>
 
           <div style={{ padding: "16px 16px calc(112px + var(--cr-safe-bottom))" }}>
 
             {/* === COURTS / MATCH TAB === */}
             {tab === "courts" && (
+              <MatchWorkspace
+                session={currentSession}
+                sessions={sessions}
+                players={players}
+                checkedIn={checkedIn}
+                matches={currentSessionMatches}
+                readOnly={readOnly}
+                useMCompensation={useMCompensation}
+                onUpdateSession={updateCurrentSession}
+                onTogglePlayer={toggleCheckIn}
+                onSelectAll={() => setCheckedIn(new Set(players.map(player => player.id)))}
+                onClearPlayers={() => setCheckedIn(new Set())}
+                onToggleCompensation={() => setUseMCompensation(!useMCompensation)}
+                onGenerate={handleWorkspaceGenerate}
+                onManualMatch={handleWorkspaceManualMatch}
+                onEditMatch={match => setScoreModal(match)}
+                onUpdateScore={handleUpdateOngoingScore}
+                onDeleteMatch={handleDeleteMatch}
+                onNotify={showNotify}
+              />
+            )}
+            {false && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {readOnly ? (
                   <div style={{ background: "#16232E12", border: "2px solid #16232E", borderRadius: 16, padding: "12px 14px", color: "#16232E", fontSize: 12, fontWeight: 750, textAlign: "center" }}>Mode lihat saja · input dan edit data dinonaktifkan</div>
@@ -2487,19 +3133,67 @@
                   <AutoRoundSchedulePanel
                     preview={autoRoundPreview}
                     players={players}
+                    checkedIn={checkedIn}
                     session={currentSession}
                     onShuffle={handleAutoRound}
-                    onPlay={handlePlayAutoRoundMatch}
-                    onClose={() => setAutoRoundPreview(null)}
-                    onLockChange={handleAutoRoundLockChange}
+                    onEdit={handleEditAutoRoundMatch}
+                    onConfirm={handleConfirmAutoRounds}
+                    onClose={handleCloseAutoRound}
                   />
+                )}
+                {autoRoundOngoingMatches.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ fontSize: 12, color: "#617181", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Match Berlangsung · Auto Rounds</div>
+                      <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 850, color: "#16232E", background: "#F0B42935", border: "1px solid #F0B42980", borderRadius: 999, padding: "4px 8px" }}>{autoRoundOngoingMatches.length} match</span>
+                    </div>
+                    {autoRoundOngoingMatches.slice().sort((a, b) => (a.scheduleNo || 0) - (b.scheduleNo || 0)).map(match => {
+                      const expanded = expandedAutoRoundMatchIds.has(match.id);
+                      const playerName = id => players.find(p => p.id === id)?.name || "?";
+                      const teamNames = ids => ids.map(playerName).join(" & ");
+                      return (
+                        <div key={match.id} style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, overflow: "hidden", boxShadow: expanded ? "3px 3px 0 #16232E" : "2px 2px 0 #16232E" }}>
+                          <button type="button" aria-expanded={expanded} aria-label={`${expanded ? "Tutup" : "Buka"} detail Match ${match.scheduleNo}`} onClick={() => setExpandedAutoRoundMatchIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(match.id)) next.delete(match.id);
+                            else next.add(match.id);
+                            return next;
+                          })} style={{ width: "100%", minHeight: 72, display: "flex", flexDirection: "column", gap: 7, padding: "10px 12px", background: expanded ? "#FAF7F2" : "#FFFFFF", border: "none", color: "#16232E", cursor: "pointer" }}>
+                            <span style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                              <span style={{ fontSize: 13, fontWeight: 900 }}>Match {match.scheduleNo}</span>
+                              <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <span style={{ fontSize: 10, fontWeight: 850, color: "#44515E", background: "#16232E08", border: "1px solid #16232E20", borderRadius: 999, padding: "3px 7px" }}>{match.mixType === "mixed" ? "Mix Gender" : match.mixType === "same" ? "Gender Sama" : "Bebas"}</span>
+                                {match.genderAdjusted && <span style={{ fontSize: 10, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42975", borderRadius: 999, padding: "3px 7px" }}>Penyesuaian</span>}
+                                <span aria-hidden="true" style={{ width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, background: "#16232E0D", border: "1px solid #16232E20", fontSize: 12, fontWeight: 900 }}>{expanded ? "▴" : "▾"}</span>
+                              </span>
+                            </span>
+                            <span style={{ width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) 24px minmax(0,1fr)", alignItems: "center", gap: 6 }}>
+                              <span style={{ minWidth: 0, textAlign: "left", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{teamNames(match.team1)}</span>
+                              <span style={{ textAlign: "center", fontSize: 10, fontWeight: 900, color: "#617181" }}>VS</span>
+                              <span style={{ minWidth: 0, textAlign: "right", fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{teamNames(match.team2)}</span>
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div style={{ padding: "10px 12px 12px", borderTop: "1px solid #16232E20" }}>
+                              <MatchCard
+                                match={match}
+                                players={players}
+                                onScore={readOnly ? null : handleUpdateOngoingScore}
+                                onEdit={readOnly ? null : () => setScoreModal(match)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
                 <div style={{ fontSize: 12, color: "#617181", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Lapangan Aktif
                 </div>
 
                 {courts.map(courtId => {
-                  const activeMatch = ongoingMatches.find(m => m.courtId === courtId);
+                  const activeMatch = ongoingMatches.find(m => m.source !== "auto-round" && m.courtId === courtId);
                   return (
                     <div key={courtId} style={{
                       background: "#FFFFFF", border: `2px solid ${activeMatch ? "#E4574F" : "#16232E"}`,
@@ -2559,7 +3253,7 @@
             {tab === "standings" && (
               <div>
                 {/* KLASEMEN HARIAN */}
-                <div id="standings-board" style={{ width: "100%", maxWidth: "100%", padding: "12px 0", background: "#FAF7F2", borderRadius: 14, marginBottom: "16px", overflow: "hidden" }}>
+                <div id="standings-board" className="cr-share-surface" style={{ width: "100%", maxWidth: "100%", padding: "14px 0", borderRadius: 18, marginBottom: "16px", overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                     <div>
                       <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, color: "#16232E", textTransform: "uppercase", letterSpacing: "-0.02em" }}>KLASEMEN HARIAN</div>
@@ -2616,8 +3310,8 @@
                       })()}
 
                       {/* TABLE */}
-                      <div style={{ width: "100%", maxWidth: "100%", overflowX: "auto", overflowY: "hidden" }}>
-                        <table style={{ width: "100%", minWidth: 398, borderCollapse: "collapse", fontSize: 12, tableLayout: "auto" }}>
+                      <div className="cr-standings-wrap">
+                        <table className="cr-standings-table cr-standings-daily" style={{ borderCollapse: "collapse", fontSize: 12 }}>
                           <thead>
                             <tr style={{ borderBottom: "1px solid #16232E14" }}>
                               {["#", "Pemain", "Tier", "P", "M", "W-D-L", "TS", "Diff", "+M", "R"].map((h, i) => (
@@ -2765,26 +3459,37 @@
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#617181", letterSpacing: "0.06em", textTransform: "uppercase" }}>👥 Check-in</div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => setCheckedIn(new Set(players.map(p => p.id)))} style={{ background: "#E4574F20", border: "2px solid #E4574F", borderRadius: 7, padding: "4px 10px", color: "#E4574F", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Semua Hadir</button>
-                      <button onClick={() => setCheckedIn(new Set())} style={{ background: "#16232E08", border: "1px solid #16232E15", borderRadius: 7, padding: "4px 10px", color: "#617181", fontSize: 11, cursor: "pointer" }}>Kosongkan</button>
+                      <button onClick={() => {
+                        setCheckedIn(new Set(activePlayers));
+                        if (activePlayers.size > 0) showNotify(`${activePlayers.size} pemain yang sedang bermain tetap check-in.`, "error");
+                      }} style={{ background: "#16232E08", border: "1px solid #16232E15", borderRadius: 7, padding: "4px 10px", color: "#617181", fontSize: 11, cursor: "pointer" }}>Kosongkan</button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "#617181", marginBottom: 10 }}>{checkedIn.size} dari {players.length} hadir</div>
+                  <div style={{ fontSize: 12, color: "#617181", marginBottom: activePlayers.size > 0 ? 5 : 10 }}>{checkedIn.size} dari {players.length} hadir</div>
+                  {activePlayers.size > 0 && (
+                    <div style={{ fontSize: 10, color: "#9A6A00", lineHeight: 1.35, marginBottom: 10 }}>Pemain berlabel MAIN sedang berada di lapangan. Ganti pemain atau selesaikan match sebelum mengubah kehadirannya.</div>
+                  )}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {players.map(p => {
                       const isIn = checkedIn.has(p.id);
                       const isPlaying = activePlayers.has(p.id);
                       return (
-                        <div key={p.id} onClick={() => !isPlaying && toggleCheckIn(p.id)} style={{
+                        <button type="button" key={p.id} title={isPlaying ? `${p.name} sedang bermain` : (isIn ? `Uncheck ${p.name}` : `Check-in ${p.name}`)} onClick={() => {
+                          if (isPlaying) {
+                            showNotify(`${p.name} sedang bermain. Ganti pemain atau selesaikan match terlebih dahulu.`, "error");
+                            return;
+                          }
+                          toggleCheckIn(p.id);
+                        }} style={{
                           display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
-                          background: isIn ? "#E4574F20" : "#16232E08",
-                          border: `1px solid ${isIn ? "#E4574F50" : "#16232E0a"}`,
-                          borderRadius: 8, cursor: isPlaying ? "default" : "pointer",
-                          opacity: isPlaying ? 0.6 : 1,
+                          minHeight: 36, background: isPlaying ? "#F0B42924" : isIn ? "#E4574F20" : "#16232E08",
+                          border: `1.5px solid ${isPlaying ? "#F0B429" : isIn ? "#E4574F" : "#16232E18"}`,
+                          borderRadius: 8, cursor: isPlaying ? "help" : "pointer",
                         }}>
-                          <span style={{ fontSize: 12, color: isIn ? "#16232E" : "#617181", fontWeight: isIn ? 600 : 400 }}>{p.name}</span>
-                          {isIn && <span style={{ fontSize: 10, color: "#16232E" }}>✓</span>}
-                          {isPlaying && <span style={{ fontSize: 9, color: "#16232E" }}>●</span>}
-                        </div>
+                          <span style={{ fontSize: 12, color: isIn ? "#16232E" : "#617181", fontWeight: isIn ? 700 : 500 }}>{p.name}</span>
+                          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 5, background: isIn ? "#E4574F" : "#FFFFFF", border: `1px solid ${isIn ? "#E4574F" : "#16232E35"}`, color: "#FFFFFF", fontSize: 10, fontWeight: 900 }}>{isIn ? "✓" : ""}</span>
+                          {isPlaying && <span style={{ flex: "0 0 auto", fontSize: 8, lineHeight: 1, color: "#5A3A00", background: "#F0B42955", borderRadius: 4, padding: "3px 4px", fontWeight: 900 }}>MAIN</span>}
+                        </button>
                       );
                     })}
                   </div>
@@ -2836,6 +3541,19 @@
               </div>
             )}
           </div>
+
+          <nav className="cr-bottom-nav" aria-label="Navigasi pertandingan">
+            {[
+              { key: "courts", icon: "🏸", text: "Match" },
+              { key: "standings", icon: "📋", text: "Klasemen" },
+              { key: "stats", icon: "📊", text: "Statistik" },
+            ].map(t => (
+              <button key={t.key} type="button" className={`cr-bottom-tab ${tab === t.key ? "cr-bottom-tab-active" : ""}`} onClick={() => setTab(t.key)} aria-current={tab === t.key ? "page" : undefined}>
+                <span aria-hidden="true">{t.icon}</span>
+                <span>{t.text}</span>
+              </button>
+            ))}
+          </nav>
 
           {/* TURN BANNER */}
           {turnBanner && (
@@ -2998,11 +3716,10 @@
           )}
 
           {!readOnly && scoreModal && (
-            <ScoreModal
-              match={scoreModal} players={players}
+            <PlayerEditModal
+              match={scoreModal} players={players.filter(player => checkedIn.has(player.id) || [...scoreModal.team1, ...scoreModal.team2].includes(player.id))}
               onClose={() => setScoreModal(null)}
-              onSubmit={(games, t1, t2, finish) => handleSubmitScore(scoreModal.id, games, t1, t2, finish)}
-              onDelete={() => handleDeleteMatch(scoreModal.id)}
+              onChangePlayers={(t1, t2) => handleUpdateMatchPlayers(scoreModal.id, t1, t2)}
             />
           )}
 
@@ -3068,7 +3785,7 @@
               border: `1px solid ${notify.type === "error" ? "#E4574F" : "#166534"}`,
               color: notify.type === "error" ? "#E4574F" : "#86efac",
               padding: "10px 20px", borderRadius: 10, fontSize: 13, fontWeight: 500,
-              zIndex: 1000, whiteSpace: "nowrap", boxShadow: "0 4px 24px #00000060",
+              zIndex: 1000, width: "max-content", maxWidth: "calc(100% - 32px)", whiteSpace: "normal", textAlign: "center", boxShadow: "0 4px 24px #00000060",
             }}>{notify.msg}</div>
           )}
 
@@ -3078,7 +3795,7 @@
               zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center",
               padding: 20
             }} onClick={() => setConfirmDialog(null)}>
-              <div style={{
+              <div className="cr-glass-modal" style={{
                 background: "#FFFFFF", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320,
                 border: "2px solid #16232E", textAlign: "center",
                 boxShadow: "0 10px 40px #00000080"
@@ -3097,14 +3814,421 @@
                   <button onClick={confirmDialog.onConfirm} style={{
                     flex: 1, padding: "12px", borderRadius: 10,
                     background: confirmDialog.isDanger ? "#FFE9EC" : "linear-gradient(135deg, #E4574F, #E4574F)",
-                    border: "none", color: "#fff", fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif"
-                  }}>Yakin</button>
+                    border: confirmDialog.isDanger ? "2px solid #E4574F" : "none", color: confirmDialog.isDanger ? "#E4574F" : "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif"
+                  }}>{confirmDialog.confirmText || "Yakin"}</button>
                 </div>
               </div>
             </div>
           )}
         </div>
       );    }
+
+    function MatchWorkspace({ session, sessions, players, checkedIn, matches, readOnly, useMCompensation, onUpdateSession, onTogglePlayer, onSelectAll, onClearPlayers, onToggleCompensation, onGenerate, onManualMatch, onEditMatch, onUpdateScore, onDeleteMatch, onNotify }) {
+      const latestConfiguredMatch = matches.slice().reverse().find(match => match.pairFormat || match.generationPattern);
+      const initialPairFormat = latestConfiguredMatch?.pairFormat === "manual" ? "" : (latestConfiguredMatch?.pairFormat || ({ mixed: "mix", same: "gender", free: "random" }[latestConfiguredMatch?.mixType]) || "");
+      const initialPattern = ["rotation", "tier"].includes(latestConfiguredMatch?.generationPattern) ? latestConfiguredMatch.generationPattern : "";
+      const [openSteps, setOpenSteps] = React.useState(() => new Set(matches.length > 0 ? [4] : [1, 2, 3]));
+      const [mode, setMode] = React.useState(latestConfiguredMatch?.generationPattern === "manual" ? "manual" : "auto");
+      const [pairFormat, setPairFormat] = React.useState(initialPairFormat);
+      const [pattern, setPattern] = React.useState(initialPattern);
+      const [count, setCount] = React.useState("5");
+      const [action, setAction] = React.useState(matches.length > 0 ? "add" : "replace");
+      const [generationPreview, setGenerationPreview] = React.useState(null);
+      const [manualSelected, setManualSelected] = React.useState([]);
+      const [matchShareBusy, setMatchShareBusy] = React.useState(null);
+      const matchShareRef = React.useRef(null);
+      const selectedPlayers = players.filter(player => checkedIn.has(player.id));
+      const checkedInKey = [...checkedIn].sort((a, b) => a - b).join(",");
+      const matchListKey = matches.map(match => `${match.id}:${match.scheduleNo || ""}`).join(",");
+      const sortedMatches = matches.map((match, originalIndex) => ({
+        match,
+        displayNo: Number(match.scheduleNo) || originalIndex + 1,
+        originalIndex,
+      })).sort((a, b) => a.displayNo - b.displayNo || a.originalIndex - b.originalIndex);
+      const playerName = id => players.find(player => player.id === id)?.name || "?";
+      const hasScore = match => (match.games || []).some(game => Number(game.t1) > 0 || Number(game.t2) > 0);
+      const scoreText = match => (match.games || []).map(game => `${Number(game.t1) || 0}-${Number(game.t2) || 0}`).join(" · ");
+      const pairLabels = { mix: "Mix Pair", gender: "Gender Pair", random: "Random Pair", manual: "Manual", mixed: "Mix Pair", same: "Gender Pair", free: "Random Pair" };
+      const patternLabels = { rotation: "Rotation Shuffle", tier: "Tier Shuffle", manual: "Manual" };
+      const settingSummary = mode === "manual"
+        ? `Manual · ${manualSelected.length} pemain dipilih`
+        : `${pairLabels[pairFormat] || "Pilih pasangan"} · ${patternLabels[pattern] || "Pilih pola"} · ${count || 0} match`;
+      const panelStyle = { background: "rgba(255,255,255,0.48)", WebkitBackdropFilter: "blur(22px) saturate(138%) contrast(103%)", backdropFilter: "blur(22px) saturate(138%) contrast(103%)", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 16, padding: 14, boxShadow: "0 12px 30px rgba(22,35,46,0.11), inset 0 0 0 1px rgba(22,35,46,0.07), inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(22,35,46,0.08)" };
+      const stepPanelStyle = { ...panelStyle, padding: 0, overflow: "hidden" };
+      const isOpen = step => openSteps.has(step);
+      const toggleStep = step => setOpenSteps(prev => {
+        const next = new Set(prev);
+        if (next.has(step)) next.delete(step); else next.add(step);
+        return next;
+      });
+      const openOnly = (...steps) => setOpenSteps(new Set(steps));
+      const stepHeader = (step, title, summary, disabled = false) => (
+        <button type="button" onClick={() => !disabled && toggleStep(step)} aria-expanded={isOpen(step)} disabled={disabled} style={{ width: "100%", minHeight: 62, display: "grid", gridTemplateColumns: "44px minmax(0,1fr) 28px", alignItems: "center", gap: 9, padding: "10px 12px", border: "none", background: isOpen(step) ? "#FAF7F2" : "#FFFFFF", color: "#16232E", cursor: disabled ? "default" : "pointer", textAlign: "left" }}>
+          <span style={{ width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 9, background: disabled ? "#16232E0A" : "#E4574F12", border: `1.5px solid ${disabled ? "#16232E20" : "#E4574F55"}`, color: disabled ? "#778899" : "#E4574F", fontSize: 12, fontWeight: 900 }}>{step}</span>
+          <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 13, fontWeight: 900 }}>{title}</span><span style={{ display: "block", marginTop: 2, fontSize: 10, color: "#617181", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary}</span></span>
+          <span aria-hidden="true" style={{ width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, background: "#16232E0A", border: "1px solid #16232E20", color: "#16232E", fontSize: 12, fontWeight: 900 }}>{disabled ? "·" : isOpen(step) ? "−" : "+"}</span>
+        </button>
+      );
+      const choiceButton = (selected, onClick, title, note) => (
+        <button type="button" onClick={onClick} disabled={readOnly} style={{ width: "100%", minHeight: 58, padding: "9px 10px", textAlign: "left", background: selected ? "#E4574F14" : "#FFFFFF", border: `2px solid ${selected ? "#E4574F" : "#16232E30"}`, borderRadius: 10, color: "#16232E", cursor: readOnly ? "default" : "pointer" }}>
+          <span style={{ display: "block", fontSize: 12, fontWeight: 900 }}>{title}</span>
+          <span style={{ display: "block", fontSize: 10, color: "#617181", marginTop: 3, lineHeight: 1.3 }}>{note}</span>
+        </button>
+      );
+
+      React.useEffect(() => {
+        setManualSelected(prev => prev.filter(id => checkedIn.has(id)));
+      }, [checkedIn]);
+
+      React.useEffect(() => {
+        setGenerationPreview(null);
+      }, [session?.id, mode, pairFormat, pattern, count, action, checkedInKey, matchListKey]);
+
+      const toggleManualPlayer = id => {
+        setManualSelected(prev => {
+          const next = prev.includes(id) ? prev.filter(value => value !== id) : (prev.length < 4 ? [...prev, id] : prev);
+          return next;
+        });
+      };
+
+      const finishGenerate = () => {
+        setGenerationPreview(null);
+        setAction("add");
+        openOnly(4);
+        setTimeout(() => document.getElementById("generated-matches")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      };
+
+      const requestGenerationPreview = () => {
+        const previewConfig = { pairFormat, pattern, count, action: matches.length ? action : "replace" };
+        onGenerate({ ...previewConfig, previewOnly: true }, generated => {
+          setGenerationPreview({ config: previewConfig, matches: generated });
+          setTimeout(() => document.getElementById("generation-preview")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+        });
+      };
+
+      const confirmGenerationPreview = () => {
+        if (!generationPreview?.matches?.length) return;
+        onGenerate({
+          ...generationPreview.config,
+          previewMatches: generationPreview.matches,
+          previewConfirmed: true,
+        }, finishGenerate);
+      };
+
+      const buildGeneratedMatchesShareText = () => {
+        const title = session?.label || "Generated Matches";
+        const date = session?.date ? `\n${session.date}` : "";
+        const lines = sortedMatches.map(({ match, displayNo }) => {
+          const score = scoreText(match) || "0-0";
+          return `Match ${displayNo}: ${match.team1.map(playerName).join(" & ")} vs ${match.team2.map(playerName).join(" & ")} (${score})`;
+        });
+        return `*${title}*${date}\n${matches.length} match\n\n${lines.join("\n")}`;
+      };
+
+      const getGeneratedMatchesBlob = async () => {
+        const element = matchShareRef.current;
+        if (!element || !window.html2canvas) throw new Error("Daftar match belum siap");
+        return createGlassExportBlob(element);
+      };
+
+      const generatedMatchesFilename = () => {
+        const safeLabel = (session?.label || "Generated-Matches").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+        return `${safeLabel || "Generated-Matches"}-CourtRank.jpg`;
+      };
+
+      const handleDownloadGeneratedMatches = async () => {
+        if (!matches.length || matchShareBusy) return;
+        setMatchShareBusy("image");
+        try {
+          const blob = await getGeneratedMatchesBlob();
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = generatedMatchesFilename();
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+          onNotify?.("Gambar semua match berhasil disimpan.", "success");
+        } catch (error) {
+          console.error(error);
+          onNotify?.("Gagal membuat gambar match.", "error");
+        } finally {
+          setMatchShareBusy(null);
+        }
+      };
+
+      const handleShareGeneratedMatchesWA = async () => {
+        if (!matches.length || matchShareBusy) return;
+        setMatchShareBusy("wa");
+        try {
+          const blob = await getGeneratedMatchesBlob();
+          const file = new File([blob], generatedMatchesFilename(), { type: "image/jpeg" });
+          const text = buildGeneratedMatchesShareText();
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: session?.label || "Generated Matches", text, files: [file] });
+          } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+            onNotify?.("WhatsApp dibuka. Gunakan tombol gambar bila ingin melampirkan hasil capture.", "success");
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError") {
+            console.error(error);
+            onNotify?.("Gagal membagikan match ke WhatsApp.", "error");
+          }
+        } finally {
+          setMatchShareBusy(null);
+        }
+      };
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {readOnly && <div style={{ background: "#16232E12", border: "2px solid #16232E", borderRadius: 12, padding: "10px 12px", color: "#16232E", fontSize: 12, fontWeight: 800, textAlign: "center" }}>Mode lihat saja</div>}
+
+          <section style={stepPanelStyle}>
+            {stepHeader(1, "Session", `${session?.label || "Tanpa nama"}${session?.date ? ` · ${session.date}` : ""}`)}
+            {isOpen(1) && <div style={{ padding: "4px 14px 14px", borderTop: "1px solid #16232E18" }}>
+            <label style={{ display: "block", fontSize: 10, color: "#617181", fontWeight: 800, marginBottom: 5 }}>NAMA SESI</label>
+            <input value={session?.label || ""} disabled={readOnly} onChange={event => onUpdateSession("label", event.target.value)} style={{ width: "100%", minHeight: 42, border: "2px solid #16232E", borderRadius: 10, padding: "9px 11px", background: "#FAF7F2", color: "#16232E", fontSize: 13, fontWeight: 800, outline: "none", marginBottom: 10 }} />
+            <label style={{ display: "block", fontSize: 10, color: "#617181", fontWeight: 800, marginBottom: 5 }}>TANGGAL</label>
+            <input value={session?.date || ""} disabled={readOnly} onChange={event => onUpdateSession("date", event.target.value)} placeholder="Contoh: 5 Oktober 2026" style={{ width: "100%", minHeight: 42, border: "2px solid #16232E", borderRadius: 10, padding: "9px 11px", background: "#FAF7F2", color: "#16232E", fontSize: 12, outline: "none", marginBottom: 10 }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 2, paddingTop: 12, borderTop: "1px solid #16232E20" }}>
+              <div><div style={{ fontSize: 11, color: "#16232E", fontWeight: 850 }}>Kompensasi Harian</div><div style={{ fontSize: 10, color: "#617181", marginTop: 2 }}>{useMCompensation ? "Aktif untuk sesi ini" : "Tidak digunakan"}</div></div>
+              <button type="button" onClick={onToggleCompensation} disabled={readOnly} aria-pressed={useMCompensation} style={{ width: 48, height: 30, borderRadius: 999, border: "2px solid #16232E", background: useMCompensation ? "#2E8B57" : "#FFFFFF", padding: 2, cursor: readOnly ? "default" : "pointer" }}><span style={{ display: "block", width: 22, height: 22, borderRadius: 999, background: "#FFFFFF", border: "1px solid #16232E", transform: useMCompensation ? "translateX(18px)" : "translateX(0)", transition: "transform .15s" }} /></button>
+            </div>
+            </div>}
+          </section>
+
+          <section style={stepPanelStyle}>
+            {stepHeader(2, "Players", `${selectedPlayers.length} dari ${players.length} pemain dipilih`)}
+            {isOpen(2) && <div style={{ padding: "12px 14px 14px", borderTop: "1px solid #16232E18" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, color: "#16232E", fontWeight: 850 }}>{selectedPlayers.length} dari {players.length} pemain dipilih</span>
+              {!readOnly && <div style={{ display: "flex", gap: 5 }}><button onClick={onSelectAll} style={{ minHeight: 30, padding: "5px 8px", border: "1px solid #E4574F", borderRadius: 7, background: "#E4574F12", color: "#E4574F", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Pilih Semua</button><button onClick={onClearPlayers} style={{ minHeight: 30, padding: "5px 8px", border: "1px solid #16232E30", borderRadius: 7, background: "#FFFFFF", color: "#44515E", fontSize: 10, fontWeight: 850, cursor: "pointer" }}>Kosongkan</button></div>}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {players.map(player => {
+                const selected = checkedIn.has(player.id);
+                const gender = GENDER_OPTIONS[normalizeGender(player.gender)];
+                return <button key={player.id} type="button" disabled={readOnly} onClick={() => onTogglePlayer(player.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, minHeight: 34, padding: "5px 8px", borderRadius: 8, border: `1.5px solid ${selected ? "#E4574F" : "#16232E22"}`, background: selected ? "#E4574F12" : "#F7F8F9", color: selected ? "#16232E" : "#778899", cursor: readOnly ? "default" : "pointer", fontSize: 11, fontWeight: selected ? 800 : 600 }}><span>{player.name}</span><span style={{ color: gender.color }}>{gender.short}</span><TierBadge tier={player.tier} small />{selected && <span style={{ color: "#E4574F", fontWeight: 900 }}>✓</span>}</button>;
+              })}
+            </div>
+            {players.length === 0 && <div style={{ fontSize: 12, color: "#617181", textAlign: "center", padding: 16 }}>Belum ada pemain di arena ini.</div>}
+            </div>}
+          </section>
+
+          {!readOnly && selectedPlayers.length < 4 && <div style={{ padding: "11px 12px", border: "1.5px solid #F0B429", borderRadius: 10, background: "#FFF7DF", color: "#5A3A00", fontSize: 12, fontWeight: 750 }}>Pilih minimal 4 pemain untuk membuka Match Generator.</div>}
+
+          <section id="match-generator" style={{ ...stepPanelStyle, scrollMarginTop: 130 }}>
+            {stepHeader(3, "Match Setting", settingSummary, selectedPlayers.length < 4)}
+            {isOpen(3) && selectedPlayers.length >= 4 && <div style={{ padding: "12px 14px 14px", borderTop: "1px solid #16232E18" }}>
+              <div style={{ fontSize: 9, color: "#617181", fontWeight: 900, marginBottom: 6 }}>MODE PEMBUATAN</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {choiceButton(mode === "auto", () => setMode("auto"), "Auto Generate", "Buat beberapa match sekaligus.")}
+                {choiceButton(mode === "manual", () => setMode("manual"), "Manual Pairing", "Susun satu match sendiri.")}
+              </div>
+
+              {mode === "auto" && <>
+                <div style={{ fontSize: 9, color: "#617181", fontWeight: 900, margin: "16px 0 6px", paddingTop: 12, borderTop: "1px solid #16232E20" }}>PAIR FORMAT</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                  {choiceButton(pairFormat === "mix", () => { setPairFormat("mix"); setPattern(""); }, "Mix Pair · Wajib Campuran", "Setiap tim berisi pria + wanita. Kekurangan gender diisi tier terdekat.")}
+                  {choiceButton(pairFormat === "gender", () => { setPairFormat("gender"); setPattern(""); }, "Gender Pair · Gender Sama", "Tim diutamakan sesama gender. Kekurangan diisi tier terdekat.")}
+                  <div style={{ gridColumn: "1 / -1" }}>{choiceButton(pairFormat === "random", () => { setPairFormat("random"); setPattern(""); }, "Random Pair · Gender Bebas", "Gender tidak dibatasi: tim boleh pria-pria, wanita-wanita, atau campuran.")}</div>
+                </div>
+
+                {pairFormat && <>
+                  <div style={{ fontSize: 9, color: "#617181", fontWeight: 900, margin: "16px 0 6px", paddingTop: 12, borderTop: "1px solid #16232E20" }}>GENERATION PATTERN</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                    {choiceButton(pattern === "rotation", () => setPattern("rotation"), "Rotation Shuffle", "Utamakan pemain dengan total match All Time paling sedikit, lalu variasi partner dan lawan.")}
+                    {choiceButton(pattern === "tier", () => setPattern("tier"), "Tier Shuffle", "Utamakan keseimbangan kekuatan, lalu variasi kombinasi.")}
+                  </div>
+                </>}
+
+                {pairFormat && pattern && <>
+                  <div style={{ fontSize: 9, color: "#617181", fontWeight: 900, margin: "16px 0 6px", paddingTop: 12, borderTop: "1px solid #16232E20" }}>JUMLAH MATCH</div>
+                  <input aria-label="Jumlah match" type="number" inputMode="numeric" min="1" max="500" value={count} onChange={event => setCount(event.target.value)} style={{ width: "100%", minHeight: 46, border: "2px solid #16232E", borderRadius: 10, padding: "9px 12px", background: "#FAF7F2", color: "#16232E", fontSize: 18, fontWeight: 900, textAlign: "center", outline: "none" }} />
+                  {matches.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 10 }}>{choiceButton(action === "add", () => setAction("add"), "Add to Existing", "Pertahankan match lama.")}{choiceButton(action === "replace", () => setAction("replace"), "Replace Existing", "Ganti semua match sesi.")}</div>}
+                  {!readOnly && !generationPreview && <button onClick={requestGenerationPreview} style={{ width: "100%", minHeight: 48, marginTop: 12, background: "#E4574F", border: "2px solid #16232E", borderRadius: 12, color: "#FFFFFF", fontWeight: 900, cursor: "pointer", boxShadow: "3px 3px 0 #16232E" }}>Lihat Preview Match</button>}
+                  {!readOnly && generationPreview && <div id="generation-preview" style={{ marginTop: 12, border: "2px solid #16232E", borderRadius: 12, overflow: "hidden", background: "rgba(255,255,255,0.66)", scrollMarginTop: 140 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 11px", background: "#16232E", color: "#FFFFFF" }}>
+                      <div><div style={{ fontSize: 12, fontWeight: 900 }}>Preview {generationPreview.matches.length} Match</div><div style={{ marginTop: 2, fontSize: 9, color: "#FFFFFFB8" }}>Periksa pasangan sebelum dikonfirmasi</div></div>
+                      <span style={{ flex: "0 0 auto", padding: "4px 6px", border: "1px solid #FFFFFF70", borderRadius: 6, fontSize: 8, fontWeight: 900 }}>BELUM TERSIMPAN</span>
+                    </div>
+                    <div style={{ padding: "8px 10px", background: generationPreview.config.action === "replace" && matches.length ? "#FFF7DF" : "#F1F7F4", borderBottom: "1px solid #16232E20", color: "#44515E", fontSize: 10, fontWeight: 750, lineHeight: 1.4 }}>
+                      {generationPreview.config.action === "replace" && matches.length
+                        ? `Hanya match di ${session?.label || "sesi ini"} yang akan diganti. Sesi lain tetap aman.`
+                        : matches.length
+                          ? `${matches.length} match lama tetap dipertahankan.`
+                          : "Match belum dibuat. Preview ini belum mengubah data sesi."}
+                    </div>
+                    <div style={{ maxHeight: 330, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 10px" }}>
+                      {generationPreview.matches.map((match, index) => {
+                        const team = ids => ids.map(playerName).join(" & ");
+                        const tiers = ids => ids.map(id => players.find(player => player.id === id)?.tier).filter(Boolean);
+                        return <div key={`${match.id}-${index}`} style={{ padding: "9px 0", borderBottom: index < generationPreview.matches.length - 1 ? "1px solid #16232E18" : "none" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "24px minmax(0,1fr) 22px minmax(0,1fr)", alignItems: "center", gap: 5 }}>
+                            <span style={{ color: "#E4574F", fontSize: 10, fontWeight: 900 }}>{Number(match.scheduleNo) || index + 1}</span>
+                            <div style={{ minWidth: 0 }}><div style={{ color: "#16232E", fontSize: 11, fontWeight: 850, lineHeight: 1.25 }}>{team(match.team1)}</div><div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>{tiers(match.team1).map((tier, tierIndex) => <TierBadge key={tierIndex} tier={tier} small />)}</div></div>
+                            <span style={{ color: "#617181", fontSize: 8, fontWeight: 900, textAlign: "center" }}>VS</span>
+                            <div style={{ minWidth: 0, textAlign: "right" }}><div style={{ color: "#16232E", fontSize: 11, fontWeight: 850, lineHeight: 1.25 }}>{team(match.team2)}</div><div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 3, marginTop: 3 }}>{tiers(match.team2).map((tier, tierIndex) => <TierBadge key={tierIndex} tier={tier} small />)}</div></div>
+                          </div>
+                          {match.genderAdjusted && <div style={{ margin: "5px 0 0 29px", color: "#9A6A00", fontSize: 8, fontWeight: 800 }}>Penyesuaian gender memakai tier terdekat</div>}
+                        </div>;
+                      })}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, padding: 10, borderTop: "1px solid #16232E20", background: "#FAF7F2" }}>
+                      <button type="button" onClick={() => setGenerationPreview(null)} style={{ minHeight: 40, border: "1.5px solid #16232E", borderRadius: 9, background: "#FFFFFF", color: "#16232E", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>Batal</button>
+                      <button type="button" onClick={requestGenerationPreview} style={{ minHeight: 40, border: "1.5px solid #16232E", borderRadius: 9, background: "#FFFFFF", color: "#16232E", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>Acak Ulang</button>
+                      <button type="button" onClick={confirmGenerationPreview} style={{ gridColumn: "1 / -1", minHeight: 44, border: "2px solid #16232E", borderRadius: 10, background: "#E4574F", color: "#FFFFFF", fontSize: 12, fontWeight: 900, cursor: "pointer", boxShadow: "2px 2px 0 #16232E" }}>
+                        {generationPreview.config.action === "replace" && matches.length ? "Ganti Match Sesi Ini" : matches.length ? `Tambahkan ${generationPreview.matches.length} Match` : `Konfirmasi ${generationPreview.matches.length} Match`}
+                      </button>
+                    </div>
+                  </div>}
+                </>}
+              </>}
+
+              {mode === "manual" && <>
+                <div style={{ fontSize: 9, color: "#617181", fontWeight: 900, margin: "16px 0 6px", paddingTop: 12, borderTop: "1px solid #16232E20" }}>PILIH 2 ATAU 4 PEMAIN</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{selectedPlayers.map(player => {
+                  const selectedIndex = manualSelected.indexOf(player.id);
+                  const gender = GENDER_OPTIONS[normalizeGender(player.gender)];
+                  return <button key={player.id} onClick={() => toggleManualPlayer(player.id)} style={{ minHeight: 42, display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", background: selectedIndex >= 0 ? "#E4574F12" : "#FFFFFF", border: `1.5px solid ${selectedIndex >= 0 ? "#E4574F" : "#16232E25"}`, borderRadius: 9, color: "#16232E", cursor: "pointer" }}><span style={{ width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 6, background: selectedIndex >= 0 ? "#E4574F" : "#16232E0D", color: selectedIndex >= 0 ? "#FFFFFF" : "#617181", fontSize: 10, fontWeight: 900 }}>{selectedIndex >= 0 ? selectedIndex + 1 : ""}</span><span style={{ flex: 1, textAlign: "left", fontSize: 12, fontWeight: 800 }}>{player.name}</span><span style={{ padding: "3px 6px", border: `1px solid ${gender.border}`, borderRadius: 999, background: gender.bg, color: gender.color, fontSize: 9, fontWeight: 900 }}>{gender.label}</span><TierBadge tier={player.tier} small /></button>;
+                })}</div>
+                {manualSelected.length > 0 && <div style={{ marginTop: 10, padding: "9px 10px", background: "#FAF7F2", border: "1px solid #16232E25", borderRadius: 9, display: "grid", gridTemplateColumns: "1fr 28px 1fr", gap: 6, alignItems: "center", fontSize: 11, fontWeight: 800 }}><span>{manualSelected.slice(0, manualSelected.length === 2 ? 1 : 2).map(playerName).join(" & ") || "Tim A"}</span><span style={{ textAlign: "center", color: "#617181" }}>VS</span><span style={{ textAlign: "right" }}>{manualSelected.slice(manualSelected.length === 2 ? 1 : 2).map(playerName).join(" & ") || "Tim B"}</span></div>}
+                {!readOnly && <button disabled={!([2, 4].includes(manualSelected.length))} onClick={() => onManualMatch(manualSelected, () => { setManualSelected([]); openOnly(4); })} style={{ width: "100%", minHeight: 46, marginTop: 10, background: [2, 4].includes(manualSelected.length) ? "#E4574F" : "#16232E18", border: "2px solid #16232E", borderRadius: 12, color: [2, 4].includes(manualSelected.length) ? "#FFFFFF" : "#778899", fontWeight: 900, cursor: [2, 4].includes(manualSelected.length) ? "pointer" : "default" }}>Add Manual Match</button>}
+              </>}
+            </div>}
+          </section>
+
+          <section id="generated-matches" style={{ ...stepPanelStyle, scrollMarginTop: 130 }}>
+            <div style={{ minHeight: 62, display: "grid", gridTemplateColumns: "minmax(0,1fr) 34px 34px 28px", alignItems: "center", gap: 5, padding: "10px 12px", background: isOpen(4) ? "#FAF7F2" : "#FFFFFF" }}>
+              <button type="button" onClick={() => toggleStep(4)} aria-expanded={isOpen(4)} style={{ minWidth: 0, display: "grid", gridTemplateColumns: "44px minmax(0,1fr)", alignItems: "center", gap: 9, padding: 0, border: "none", background: "transparent", color: "#16232E", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 9, background: "#E4574F12", border: "1.5px solid #E4574F55", color: "#E4574F", fontSize: 12, fontWeight: 900 }}>4</span>
+                <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 13, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Generated Matches</span><span style={{ display: "block", marginTop: 2, fontSize: 10, color: "#617181", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{matches.length} match{matches.length ? ` · ${matches.filter(hasScore).length} selesai` : ""}</span></span>
+              </button>
+              <button className="cr-compact-icon" type="button" onClick={handleShareGeneratedMatchesWA} disabled={!matches.length || matchShareBusy !== null} aria-label="Bagikan semua match ke WhatsApp" title="Bagikan ke WhatsApp" style={{ width: 32, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, border: "1.5px solid #16232E", borderRadius: 7, background: matchShareBusy === "wa" ? "#617181" : "#16232E", color: "#FFFFFF", fontSize: 9, fontWeight: 900, cursor: matches.length && !matchShareBusy ? "pointer" : "default", opacity: matches.length ? 1 : 0.35 }}>{matchShareBusy === "wa" ? "..." : "WA"}</button>
+              <button className="cr-compact-icon" type="button" onClick={handleDownloadGeneratedMatches} disabled={!matches.length || matchShareBusy !== null} aria-label="Simpan semua match sebagai gambar" title="Simpan gambar" style={{ width: 32, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, border: "1.5px solid #16232E", borderRadius: 7, background: "#FFFFFF", color: "#16232E", fontSize: 15, fontWeight: 900, cursor: matches.length && !matchShareBusy ? "pointer" : "default", opacity: matches.length ? 1 : 0.35 }}>{matchShareBusy === "image" ? "..." : "↓"}</button>
+              <button className="cr-compact-icon" type="button" onClick={() => toggleStep(4)} aria-label={isOpen(4) ? "Minimize Generated Matches" : "Buka Generated Matches"} style={{ width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, borderRadius: 7, background: "#16232E0A", border: "1px solid #16232E20", color: "#16232E", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>{isOpen(4) ? "−" : "+"}</button>
+            </div>
+            {isOpen(4) && <div style={{ padding: "12px 12px 14px", borderTop: "1px solid #16232E18" }}>
+            {sortedMatches.length === 0 && <div style={{ ...panelStyle, textAlign: "center", color: "#617181", fontSize: 12, boxShadow: "none" }}>Belum ada match. Lengkapi pengaturan di atas lalu generate.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {sortedMatches.map(({ match, displayNo }) => <GeneratedMatchItem
+                key={match.id}
+                match={match}
+                matchNo={displayNo}
+                players={players}
+                readOnly={readOnly}
+                onEdit={() => onEditMatch(match)}
+                onUpdateScore={onUpdateScore}
+                onDelete={() => onDeleteMatch(match.id)}
+              />)}
+            </div>
+            {!readOnly && matches.length > 0 && <button onClick={() => { setAction("add"); openOnly(3); setTimeout(() => document.getElementById("match-generator")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} style={{ width: "100%", minHeight: 46, marginTop: 12, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontWeight: 900, cursor: "pointer", boxShadow: "2px 2px 0 #16232E" }}>+ Add More Matches</button>}
+            </div>}
+          </section>
+          <GeneratedMatchesShareCard ref={matchShareRef} session={session} matches={sortedMatches} players={players} />
+        </div>
+      );
+    }
+
+    const GeneratedMatchesShareCard = React.forwardRef(function GeneratedMatchesShareCard({ session, matches, players }, ref) {
+      return <div ref={ref} className="cr-share-surface" aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 430, padding: 16, background: "#FAF7F2", color: "#16232E", fontFamily: "'DM Sans', sans-serif", pointerEvents: "none" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, paddingBottom: 10, borderBottom: "2px solid #16232E" }}>
+          <div style={{ minWidth: 0 }}><div style={{ fontSize: 10, fontWeight: 900, color: "#E4574F" }}>COURTRANK</div><div style={{ marginTop: 2, fontSize: 19, lineHeight: 1.1, fontWeight: 900 }}>{session?.label || "Generated Matches"}</div>{session?.date && <div style={{ marginTop: 3, fontSize: 10, color: "#617181", fontWeight: 700 }}>{session.date}</div>}</div>
+          <div style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 900 }}>{matches.length} MATCH</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, paddingTop: 10 }}>
+          {matches.map(({ match, displayNo }) => (
+            <GeneratedMatchItem
+              key={match.id}
+              match={match}
+              matchNo={displayNo}
+              players={players}
+              readOnly={true}
+            />
+          ))}
+        </div>
+      </div>;
+    });
+
+    function GeneratedMatchItem({ match, matchNo, players, readOnly, onEdit, onUpdateScore, onDelete }) {
+      const initialGames = () => (match.games?.length ? match.games : [{ t1: 0, t2: 0 }]).map(game => ({ t1: Number(game.t1) || 0, t2: Number(game.t2) || 0 }));
+      const [draftGames, setDraftGames] = React.useState(initialGames);
+      React.useEffect(() => setDraftGames(initialGames()), [match.id, JSON.stringify(match.games || [])]);
+      const getPlayer = id => players.find(player => player.id === id);
+      const teamName = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
+      const hasScore = draftGames.some(game => Number(game.t1) > 0 || Number(game.t2) > 0);
+      const result = calcMatchResult({ ...match, games: draftGames }, players);
+      const tierDiff = Math.abs((result.tw1 || 0) - (result.tw2 || 0));
+      const team1Role = tierDiff === 0 ? "Seimbang" : result.tw1 > result.tw2 ? "Jagoan" : "Underdog";
+      const team2Role = tierDiff === 0 ? "Seimbang" : result.tw2 > result.tw1 ? "Jagoan" : "Underdog";
+      const dark = "#16232E";
+      const muted = "#9AA3AB";
+      const teamColor = team => hasScore && !result.isTie && !(team === 1 ? result.t1Win : result.t2Win) ? muted : dark;
+      const scoreColor = (game, team) => {
+        const t1 = Number(game.t1) || 0;
+        const t2 = Number(game.t2) || 0;
+        if ((t1 === 0 && t2 === 0) || t1 === t2) return dark;
+        const wins = team === 1 ? t1 > t2 : t2 > t1;
+        return wins ? dark : muted;
+      };
+      const commitGames = games => {
+        const cleanGames = games.map(game => ({ t1: Number(game.t1) || 0, t2: Number(game.t2) || 0 }));
+        onUpdateScore?.(match.id, cleanGames, false);
+      };
+      const updateScore = (gameIndex, team, value) => setDraftGames(prev => {
+        const score = value === "" ? 0 : Math.max(0, parseInt(value, 10) || 0);
+        const next = prev.map((game, index) => index === gameIndex ? { ...game, [team]: score } : game);
+        commitGames(next);
+        return next;
+      });
+      const addSet = () => setDraftGames(prev => {
+        if (prev.length >= 3) return prev;
+        const next = [...prev, { t1: 0, t2: 0 }];
+        commitGames(next);
+        return next;
+      });
+      const removeSet = gameIndex => setDraftGames(prev => {
+        const next = prev.filter((_, index) => index !== gameIndex);
+        const safeNext = next.length ? next : [{ t1: 0, t2: 0 }];
+        commitGames(safeNext);
+        return safeNext;
+      });
+      const editButton = label => !readOnly && <button className="cr-compact-icon" type="button" onClick={onEdit} aria-label={`Edit pemain ${label}`} title={`Edit pemain ${label}`} style={{ width: 24, height: 24, flex: "0 0 24px", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, border: "none", borderRadius: 6, background: "#16232E0A", color: "#16232E", fontSize: 14, fontWeight: 900, cursor: "pointer" }}>✎</button>;
+
+      return <article style={{ background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, padding: "9px 10px 10px", boxShadow: "2px 2px 0 #16232E" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 900, color: dark }}>Match {matchNo}</span>
+          {!readOnly && <button className="cr-compact-icon" type="button" onClick={onDelete} aria-label="Hapus match" title="Hapus match" style={{ width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, border: "1px solid #16232E24", borderRadius: 7, background: "#FFFFFF", color: "#617181", fontSize: 18, fontWeight: 900, cursor: "pointer", lineHeight: 1 }}>×</button>}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 24px minmax(0,1fr)", gap: 5, alignItems: "start" }}>
+          <div style={{ minWidth: 0, textAlign: "center", color: teamColor(1) }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}><span style={{ minWidth: 0, fontSize: 12, fontWeight: 850, lineHeight: 1.25 }}>{teamName(match.team1)}</span>{editButton("Tim A")}</div>
+            <div style={{ marginTop: 4, fontSize: 9, fontWeight: 800, color: teamColor(1) }}>{result.tw1 || 0} pts · {team1Role}</div>
+          </div>
+          <span style={{ paddingTop: 4, fontSize: 9, fontWeight: 900, color: "#617181", textAlign: "center" }}>VS</span>
+          <div style={{ minWidth: 0, textAlign: "center", color: teamColor(2) }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}><span style={{ minWidth: 0, fontSize: 12, fontWeight: 850, lineHeight: 1.25 }}>{teamName(match.team2)}</span>{editButton("Tim B")}</div>
+            <div style={{ marginTop: 4, fontSize: 9, fontWeight: 800, color: teamColor(2) }}>{result.tw2 || 0} pts · {team2Role}</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 7, paddingTop: 7, borderTop: "1px solid #16232E18" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, maxWidth: 188, margin: "0 auto" }}>
+            {draftGames.map((game, index) => <div key={index} style={{ width: "100%", display: "grid", gridTemplateColumns: "38px 42px 8px 42px 22px", alignItems: "center", justifyContent: "center", gap: 4 }}>
+              <span style={{ fontSize: 9, color: "#778899", textAlign: "right", fontWeight: 850 }}>Set {index + 1}</span>
+              <input className="cr-compact-score" type="number" inputMode="numeric" min="0" disabled={readOnly} value={game.t1} onFocus={event => event.currentTarget.select()} onChange={event => updateScore(index, "t1", event.target.value)} aria-label={`Skor Tim A set ${index + 1}`} style={{ width: 42, height: 30, background: readOnly ? "#F4F5F6" : "#FFFFFF", border: `1.5px solid ${scoreColor(game, 1)}`, borderRadius: 7, padding: "2px", color: scoreColor(game, 1), fontSize: 15, fontWeight: 900, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
+              <span style={{ textAlign: "center", color: "#617181", fontSize: 10, fontWeight: 900 }}>-</span>
+              <input className="cr-compact-score" type="number" inputMode="numeric" min="0" disabled={readOnly} value={game.t2} onFocus={event => event.currentTarget.select()} onChange={event => updateScore(index, "t2", event.target.value)} aria-label={`Skor Tim B set ${index + 1}`} style={{ width: 42, height: 30, background: readOnly ? "#F4F5F6" : "#FFFFFF", border: `1.5px solid ${scoreColor(game, 2)}`, borderRadius: 7, padding: "2px", color: scoreColor(game, 2), fontSize: 15, fontWeight: 900, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
+              <span style={{ width: 22, textAlign: "center" }}>{!readOnly && draftGames.length > 1 && <button className="cr-compact-icon" type="button" onClick={() => removeSet(index)} aria-label={`Hapus set ${index + 1}`} title="Hapus set" style={{ width: 22, height: 22, padding: 0, border: "none", background: "transparent", color: "#9AA3AB", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>×</button>}</span>
+            </div>)}
+            {!readOnly && draftGames.length < 3 && <button className="cr-compact-icon" type="button" onClick={addSet} aria-label="Tambah set" title="Tambah set" style={{ minWidth: 54, height: 28, padding: "0 8px", border: "1.5px dashed #16232E60", borderRadius: 7, background: "#FFFFFF", color: "#617181", fontSize: 9, fontWeight: 850, cursor: "pointer" }}>+ Set</button>}
+          </div>
+        </div>
+      </article>;
+    }
 
     // ===== MATCH CARD COMPONENTS =====
     function TierMatchStatus({ match, players, compact = false }) {
@@ -3249,83 +4373,61 @@
       );
     }
 
-    // ===== SCORE MODAL =====
-    function ScoreModal({ match, players, onClose, onSubmit, onDelete }) {
-      const [games, setGames] = React.useState(match.games.length > 0 ? match.games : [{ t1: 0, t2: 0 }]);
+    // ===== PLAYER EDIT MODAL =====
+    function PlayerEditModal({ match, players, onClose, onChangePlayers }) {
       const [team1, setTeam1] = React.useState([...match.team1]);
       const [team2, setTeam2] = React.useState([...match.team2]);
-      const playerName = (id) => players.find(p => p.id === id)?.name || "?";
-      const teamNames = (ids) => ids.map(playerName);
+      const [message, setMessage] = React.useState("");
+      const getPlayer = id => players.find(player => player.id === id);
 
       const updatePlayerSlot = (side, idx, value) => {
         const id = Number(value);
         const allSlots = [...team1, ...team2];
         const slotIndex = side === "team1" ? idx : team1.length + idx;
         const duplicate = allSlots.some((pid, i) => i !== slotIndex && pid === id);
-        if (duplicate) return;
-        if (side === "team1") setTeam1(prev => prev.map((x, i) => i === idx ? id : x));
-        else setTeam2(prev => prev.map((x, i) => i === idx ? id : x));
+        if (duplicate) {
+          setMessage("Pemain tersebut sudah ada di match ini.");
+          return;
+        }
+        const nextTeam1 = side === "team1" ? team1.map((playerId, i) => i === idx ? id : playerId) : team1;
+        const nextTeam2 = side === "team2" ? team2.map((playerId, i) => i === idx ? id : playerId) : team2;
+        setTeam1(nextTeam1);
+        setTeam2(nextTeam2);
+        setMessage("");
+        onChangePlayers(nextTeam1, nextTeam2);
       };
-const updateScore = (gi, team, val) => {
-        const clean = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
-        setGames(prev => prev.map((g, i) => i === gi ? { ...g, [team]: clean } : g));
+      const playerSelect = (side, id, idx) => {
+        const selectedIds = [...team1, ...team2];
+        const player = getPlayer(id);
+        return <div key={`${side}-${idx}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 6 }}>
+          <select aria-label={`Pemain ${side === "team1" ? "Tim A" : "Tim B"} ${idx + 1}`} value={id} onChange={event => updatePlayerSlot(side, idx, event.target.value)} style={{ width: "100%", minWidth: 0, minHeight: 42, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 10, color: "#16232E", fontSize: 12, fontWeight: 800, padding: "7px 8px", outline: "none" }}>
+            {players.map(option => <option key={option.id} value={option.id} disabled={option.id !== id && selectedIds.includes(option.id)}>{option.name} · Tier {option.tier}</option>)}
+          </select>
+          <TierBadge tier={player?.tier || "E"} small />
+        </div>;
       };
-      const normalizeGames = () => games.map(g => ({ t1: parseInt(g.t1, 10) || 0, t2: parseInt(g.t2, 10) || 0 }));
-      const addGame = () => setGames(prev => [...prev, { t1: 0, t2: 0 }]);
-      const removeGame = (gi) => setGames(prev => prev.filter((_, i) => i !== gi));
 
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#16232E", textAlign: "center" }}>Input Poin Match</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 34px 1fr", alignItems: "stretch", gap: 10, background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 16, padding: "10px 12px", marginBottom: 14 }}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "24px 24px 0 0", padding: "16px 16px 22px", width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "82vh", overflowY: "auto" }} onClick={event => event.stopPropagation()}>
+            <div style={{ display: "grid", gridTemplateColumns: "30px minmax(0,1fr) 30px", alignItems: "center", gap: 8 }}>
+              <span />
+              <div style={{ fontSize: 15, fontWeight: 900, color: "#16232E", textAlign: "center" }}>Ganti Pemain</div>
+              <button type="button" onClick={onClose} aria-label="Tutup" title="Tutup" style={{ width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1.5px solid #16232E", borderRadius: 8, background: "#FFFFFF", color: "#16232E", fontSize: 17, fontWeight: 900, cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ fontSize: 10, color: "#617181", margin: "3px 0 14px", textAlign: "center" }}>Perubahan pemain tersimpan otomatis.</div>
+            {message && <div style={{ marginBottom: 10, padding: "7px 9px", border: "1px solid #E4574F", borderRadius: 8, background: "#FFF0EF", color: "#7A1B18", fontSize: 10, fontWeight: 800, textAlign: "center" }}>{message}</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 24px minmax(0,1fr)", gap: 7, alignItems: "start" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: "#617181", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>TIM A</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {teamNames(team1).map((name, idx) => <div key={idx} style={{ fontSize: 13, color: "#16232E", fontWeight: 800, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>)}
-                </div>
+                <div style={{ marginBottom: 7, fontSize: 10, color: "#617181", fontWeight: 900, textAlign: "center" }}>TIM A</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{team1.map((id, idx) => playerSelect("team1", id, idx))}</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#16232E", fontWeight: 900, fontSize: 12 }}>VS</div>
-              <div style={{ minWidth: 0, textAlign: "right" }}>
-                <div style={{ fontSize: 10, color: "#617181", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>TIM B</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
-                  {teamNames(team2).map((name, idx) => <div key={idx} style={{ fontSize: 13, color: "#16232E", fontWeight: 800, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{name}</div>)}
-                </div>
+              <div style={{ paddingTop: 38, color: "#617181", fontWeight: 900, fontSize: 9, textAlign: "center" }}>VS</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ marginBottom: 7, fontSize: 10, color: "#617181", fontWeight: 900, textAlign: "center" }}>TIM B</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{team2.map((id, idx) => playerSelect("team2", id, idx))}</div>
               </div>
             </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {team1.map((id, idx) => (
-                  <select key={`t1-${idx}`} value={id} onChange={e => updatePlayerSlot("team1", idx, e.target.value)} style={{ width: "100%", minHeight: 40, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontSize: 12, fontWeight: 800, padding: "8px", outline: "none" }}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name} · {p.tier}</option>)}
-                  </select>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {team2.map((id, idx) => (
-                  <select key={`t2-${idx}`} value={id} onChange={e => updatePlayerSlot("team2", idx, e.target.value)} style={{ width: "100%", minHeight: 40, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 12, color: "#16232E", fontSize: 12, fontWeight: 800, padding: "8px", outline: "none" }}>
-                    {players.map(p => <option key={p.id} value={p.id}>{p.name} · {p.tier}</option>)}
-                  </select>
-                ))}
-              </div>
-            </div>
-            {games.map((g, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "48px 78px 18px 78px 24px", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#617181", textAlign: "left" }}>Set {i + 1}</span>
-                <input type="number" inputMode="numeric" value={g.t1} onFocus={e => { if (e.target.value === "0") updateScore(i, "t1", ""); }} onBlur={e => { if (e.target.value === "") updateScore(i, "t1", "0"); }} onChange={e => updateScore(i, "t1", e.target.value)} style={{ width: 78, background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 14, padding: "10px 8px", color: "#16232E", fontSize: 18, fontWeight: 800, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
-                <span style={{ color: "#16232E", fontWeight: 800, textAlign: "center" }}>-</span>
-                <input type="number" inputMode="numeric" value={g.t2} onFocus={e => { if (e.target.value === "0") updateScore(i, "t2", ""); }} onBlur={e => { if (e.target.value === "") updateScore(i, "t2", "0"); }} onChange={e => updateScore(i, "t2", e.target.value)} style={{ width: 78, background: "#FAF7F2", border: "2px solid #16232E", borderRadius: 14, padding: "10px 8px", color: "#16232E", fontSize: 18, fontWeight: 800, textAlign: "center", outline: "none", fontFamily: "'DM Mono', monospace" }} />
-                <div style={{ width: 24, textAlign: "center" }}>{games.length > 1 && <button onClick={() => removeGame(i)} style={{ background: "none", border: "none", color: "#E4574F", cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>}</div>
-              </div>
-            ))}
-            {games.length < 3 && (
-              <button onClick={addGame} style={{ width: "100%", padding: "8px", background: "#16232E08", border: "1px dashed #16232E20", borderRadius: 8, color: "#44515E", cursor: "pointer", marginBottom: 12, fontSize: 12 }}>+ Tambah Set</button>
-            )}
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button onClick={() => onSubmit(normalizeGames(), team1, team2, false)} style={{ flex: 1, padding: "11px", background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 14, color: "#44515E", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>💾 Simpan</button>
-              <button onClick={() => onSubmit(normalizeGames(), team1, team2, true)} style={{ flex: 1, padding: "11px", background: "#E4574F", border: "none", borderRadius: 16, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>✅ Selesai</button>
-            </div>
-            <button onClick={onDelete} style={{ width: "100%", marginTop: 8, padding: "10px", background: "#FFE9EC20", border: "2px solid #E4574F", borderRadius: 10, color: "#E4574F", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>🗑️ Hapus Match Ini</button>
           </div>
         </div>
       );
@@ -3348,7 +4450,7 @@ const updateScore = (gi, team, val) => {
       const previewRoleColor = (role) => role === "Jagoan" ? "#E4574F" : role === "Underdog" ? "#9A6A00" : "#16232E";
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#16232E" }}>Buat Match Manual</div>
             <div style={{ fontSize: 12, color: "#617181", marginBottom: 14 }}>Pilih 2 (single) atau 4 (double) pemain</div>
             <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -3402,7 +4504,7 @@ const updateScore = (gi, team, val) => {
 
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, color: "#16232E" }}>Edit Pemain</div>
 
             <input value={name} onChange={e => setName(e.target.value)} style={{ width: "100%", background: "#FAF7F2", border: "1px solid #16232E20", borderRadius: 14, padding: "12px 14px", color: "#16232E", fontSize: 13, outline: "none", marginBottom: 10 }} />
@@ -3523,7 +4625,7 @@ const updateScore = (gi, team, val) => {
 
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000dd", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #E4574F" }} onClick={e => e.stopPropagation()}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #E4574F" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: "#16232E" }}>⚡ Smart Match — Lapangan {preview.court}</div>
               <div style={{ fontSize: 11, color: diff === 0 ? "#16232E" : diff <= 10 ? "#9A6A00" : "#E4574F", fontWeight: 700, background: diff === 0 ? "#16232E15" : diff <= 10 ? "#9A6A0015" : "#E4574F15", padding: "3px 8px", borderRadius: 6, border: `1px solid ${diff === 0 ? "#16232E30" : diff <= 10 ? "#9A6A0030" : "#E4574F30"}` }}>
@@ -3555,17 +4657,14 @@ const updateScore = (gi, team, val) => {
       );
     }
 
-    function AutoRoundSchedulePanel({ preview, players, session, onShuffle, onPlay, onClose, onLockChange }) {
+    function AutoRoundSchedulePanel({ preview, players, checkedIn, session, onShuffle, onEdit, onConfirm, onClose }) {
       const [minimized, setMinimized] = useState(false);
-      const [locked, setLocked] = useState(!!preview?.locked);
+      const locked = false;
       const [scheduleShareBusy, setScheduleShareBusy] = useState(null);
+      const [countInput, setCountInput] = useState(String(preview?.matchCount || preview?.matches?.length || 1));
+      const [editingScheduleNo, setEditingScheduleNo] = useState(null);
       const scheduleShareRef = useRef(null);
-      useEffect(() => { setLocked(!!preview?.locked); }, [preview?.generatedAt, preview?.locked]);
-      const toggleLocked = () => {
-        const next = !locked;
-        setLocked(next);
-        if (onLockChange) onLockChange(next);
-      };
+      useEffect(() => { setCountInput(String(preview?.matchCount || preview?.matches?.length || 1)); }, [preview?.matchCount, preview?.generatedAt]);
       const getPlayer = id => players.find(p => p.id === id);
       const teamNames = ids => ids.map(id => getPlayer(id)?.name || "?").join(" & ");
       const items = preview?.matches || [];
@@ -3573,29 +4672,31 @@ const updateScore = (gi, team, val) => {
         acc[id] = (acc[id] || 0) + 1;
         return acc;
       }, {});
-      const plannedRepeatIds = preview?.repeatPlayerIds || Object.keys(repeatedIds).filter(id => repeatedIds[id] > 1).map(id => Number(id));
+      const plannedRepeatIds = Object.keys(repeatedIds).filter(id => repeatedIds[id] > 1).map(id => Number(id));
       const repeatCount = plannedRepeatIds.length;
       const involvedCount = preview?.playerCount || new Set(items.flatMap(m => [...(m.team1 || []), ...(m.team2 || [])])).size;
-      const repeatText = repeatCount > 0 ? `${repeatCount} pemain bermain 2x karena jumlah pemain tidak pas kelipatan 4.` : "Semua pemain bermain 1x.";
+      const repeatText = repeatCount > 0 ? `${repeatCount} pemain mendapat lebih dari 1 match.` : "Semua pemain bermain 1x.";
       const repeatNames = plannedRepeatIds.map(id => getPlayer(id)?.name).filter(Boolean).join(", ");
-      const extraMatches = preview?.extraMatches || 0;
-      const maxExtraMatches = Math.max(0, Math.floor((preview?.playerCount || involvedCount) / 4));
+      const matchCount = preview?.matchCount || items.length;
       const summaryText = `${involvedCount} pemain, ${items.length} match, ${repeatText}`;
-      const roundMode = preview?.roundMode === "mixed" ? "mixed" : "free";
-      const handleShuffle = (focus, nextExtra = extraMatches, nextMode = preview?.roundMode || "free") => {
+      const roundMode = ["mixed", "same"].includes(preview?.roundMode) ? preview.roundMode : "free";
+      const handleShuffle = (focus, nextCount = matchCount, nextMode = roundMode) => {
         if (locked) return;
-        const sameView = focus === preview?.focus && nextMode === roundMode && nextExtra === extraMatches;
-        onShuffle(focus, nextExtra, nextMode, sameView);
+        const sameView = focus === preview?.focus && nextMode === roundMode && nextCount === matchCount;
+        onShuffle(focus, nextCount, nextMode, sameView);
       };
       const handleRoundMode = (nextMode) => {
         if (locked) return;
-        handleShuffle(preview?.focus || "rotation", extraMatches, nextMode);
+        handleShuffle(preview?.focus || "rotation", matchCount, nextMode);
       };
-      const handleExtraMatch = (delta) => {
+      const applyCount = () => {
         if (locked) return;
-        const nextExtra = Math.max(0, Math.min(maxExtraMatches, extraMatches + delta));
-        if (nextExtra === extraMatches) return;
-        onShuffle(preview?.focus || "rotation", nextExtra, preview?.roundMode || "free");
+        const nextCount = Number(countInput);
+        if (!Number.isInteger(nextCount) || nextCount < 1 || nextCount > 500) {
+          setCountInput(String(matchCount));
+          return;
+        }
+        if (nextCount !== matchCount) handleShuffle(preview?.focus || "rotation", nextCount, roundMode);
       };
       const buildScheduleShareText = () => {
         const sessionName = (session?.label || "Sesi").toUpperCase();
@@ -3679,7 +4780,6 @@ const updateScore = (gi, team, val) => {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={toggleLocked} aria-label={locked ? "Unlock jadwal" : "Lock jadwal"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: locked ? "#F0B42935" : "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{locked ? "🔒" : "🔓"}</button>
               <button onClick={() => setMinimized(v => !v)} aria-label={minimized ? "Buka Auto Rounds" : "Minimize Auto Rounds"} style={{ minWidth: 38, height: 36, padding: "0 9px", borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>{minimized ? "▾" : "▴"}</button>
               <button onClick={onClose} aria-label="Tutup jadwal" style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid #16232E25", background: "#16232E08", color: "#16232E", fontWeight: 900, cursor: "pointer" }}>×</button>
             </div>
@@ -3698,16 +4798,15 @@ const updateScore = (gi, team, val) => {
             )}
             {!minimized && (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
                   <button disabled={locked} onClick={() => handleRoundMode("free")} style={shuffleButtonStyle(roundMode === "free", "#F0B429")}>Bebas</button>
-                  <button disabled={locked} onClick={() => handleRoundMode("mixed")} style={shuffleButtonStyle(roundMode === "mixed", "#F0B429")}>Campuran</button>
+                  <button disabled={locked} onClick={() => handleRoundMode("mixed")} style={shuffleButtonStyle(roundMode === "mixed", "#F0B429")}>Mix Gender</button>
+                  <button disabled={locked} onClick={() => handleRoundMode("same")} style={shuffleButtonStyle(roundMode === "same", "#F0B429")}>Gender Sama</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", gap: 8, alignItems: "center" }}>
-                  <button disabled={locked || extraMatches <= 0} onClick={() => handleExtraMatch(-1)} style={{ minHeight: 40, border: "2px solid #16232E", borderRadius: 14, background: locked || extraMatches <= 0 ? "#16232E08" : "#FFFFFF", color: locked || extraMatches <= 0 ? "#8B98A5" : "#16232E", fontWeight: 900, cursor: locked || extraMatches <= 0 ? "not-allowed" : "pointer" }}>−</button>
-                  <div style={{ minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #16232E", borderRadius: 14, background: extraMatches > 0 ? "#F0B42924" : "#FFFFFF", color: "#16232E", fontSize: 12, fontWeight: 850 }}>
-                    {extraMatches > 0 ? `+${extraMatches} match ekstra` : "Match minimum"}
-                  </div>
-                  <button disabled={locked || extraMatches >= maxExtraMatches} onClick={() => handleExtraMatch(1)} style={{ minHeight: 40, border: "2px solid #16232E", borderRadius: 14, background: locked || extraMatches >= maxExtraMatches ? "#16232E08" : "#FFFFFF", color: locked || extraMatches >= maxExtraMatches ? "#8B98A5" : "#16232E", fontWeight: 900, cursor: locked || extraMatches >= maxExtraMatches ? "not-allowed" : "pointer" }}>+</button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr minmax(72px, 100px) auto", gap: 8, alignItems: "center" }}>
+                  <label htmlFor="auto-round-count" style={{ fontSize: 12, fontWeight: 800, color: "#16232E" }}>Jumlah match</label>
+                  <input id="auto-round-count" type="number" min="1" max="500" step="1" disabled={locked} value={countInput} onChange={e => setCountInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") applyCount(); }} style={{ width: "100%", minHeight: 40, border: "2px solid #16232E", borderRadius: 8, padding: "6px 8px", textAlign: "center", fontWeight: 800 }} />
+                  <button disabled={locked || Number(countInput) === matchCount} onClick={applyCount} style={{ minHeight: 40, padding: "6px 10px", border: "2px solid #16232E", borderRadius: 8, background: "#F0B429", color: "#16232E", fontWeight: 800, cursor: "pointer" }}>Buat</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <button disabled={locked} onClick={() => handleShuffle("rotation")} style={shuffleButtonStyle(preview?.focus === "rotation", "#F0B429")}>🔀 Rotation Shuffle</button>
@@ -3718,6 +4817,12 @@ const updateScore = (gi, team, val) => {
             )}
           </div>
           {!minimized && (
+            <div style={{ marginBottom: 12 }}>
+              <button onClick={onConfirm} style={{ width: "100%", minHeight: 48, padding: "11px 12px", background: "#E4574F", border: "2px solid #16232E", borderRadius: 12, color: "#FFFFFF", fontWeight: 900, fontSize: 14, cursor: "pointer", boxShadow: "3px 3px 0 #16232E" }}>✓ Konfirmasi {items.length} Match</button>
+              <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.4, color: "#617181", textAlign: "center" }}>Setelah dikonfirmasi, semua match masuk ke Match Berlangsung dan pemain masih bisa diedit.</div>
+            </div>
+          )}
+          {!minimized && (
             <div ref={scheduleShareRef} style={{ display: "flex", flexDirection: "column", gap: 10, background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 22, padding: 12, boxShadow: "3px 3px 0 #16232E" }}>
               {items.map((m, idx) => {
                 const fakeMatch = { team1: m.team1, team2: m.team2, games: [{ t1: 0, t2: 0 }], tierSnapshot: {} };
@@ -3727,7 +4832,7 @@ const updateScore = (gi, team, val) => {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ fontSize: 13, fontWeight: 900, color: "#16232E" }}>Match {m.scheduleNo || idx + 1}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <div style={{ fontSize: 10, fontWeight: 850, color: m.mixType === "mixed" ? "#BE185D" : "#44515E", background: m.mixType === "mixed" ? "#FCE7F3" : "#16232E08", border: `1px solid ${m.mixType === "mixed" ? "#F9A8D4" : "#16232E20"}`, borderRadius: 999, padding: "3px 8px" }}>{m.mixType === "mixed" ? "Campuran" : "Bebas"}</div>
+                        <div style={{ fontSize: 10, fontWeight: 850, color: m.mixType === "mixed" ? "#BE185D" : "#44515E", background: m.mixType === "mixed" ? "#FCE7F3" : "#16232E08", border: `1px solid ${m.mixType === "mixed" ? "#F9A8D4" : "#16232E20"}`, borderRadius: 999, padding: "3px 8px" }}>{m.mixType === "mixed" ? "Mix Gender" : m.mixType === "same" ? (m.genderAdjusted ? "Gender Sama · Penyesuaian" : "Gender Sama") : "Bebas"}</div>
                         {repeatedInThisMatch.length > 0 && (
                           <div style={{ fontSize: 10, fontWeight: 850, color: "#9A6A00", background: "#F0B42924", border: "1px solid #F0B42975", borderRadius: 999, padding: "3px 8px" }}>ada pemain repeat</div>
                         )}
@@ -3738,8 +4843,20 @@ const updateScore = (gi, team, val) => {
                       <div style={{ textAlign: "center", fontSize: 11, fontWeight: 900, color: "#617181" }}>VS</div>
                       <div style={{ minWidth: 0, textAlign: "right", fontSize: 13, fontWeight: 850, color: "#16232E", lineHeight: 1.25 }}>{teamNames(m.team2)}</div>
                     </div>
+                    <button onClick={() => setEditingScheduleNo(editingScheduleNo === m.scheduleNo ? null : m.scheduleNo)} style={{ minHeight: 32, marginTop: 8, padding: "4px 0", border: "none", background: "transparent", color: "#3A7BD5", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>{editingScheduleNo === m.scheduleNo ? "Selesai edit" : "Ganti pemain"}</button>
+                    {editingScheduleNo === m.scheduleNo && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 8 }}>
+                        {["team1", "team2"].flatMap((team, teamIndex) => m[team].map((id, slot) => (
+                          <label key={`${team}-${slot}`} style={{ minWidth: 0, fontSize: 11, color: "#44515E", fontWeight: 700 }}>
+                            Tim {teamIndex + 1} · Pemain {slot + 1}
+                            <select value={id} onChange={e => onEdit(m.scheduleNo, team, slot, e.target.value)} style={{ display: "block", width: "100%", minWidth: 0, minHeight: 38, marginTop: 3, padding: "4px 6px", border: "1px solid #16232E50", borderRadius: 8, background: "#FFFFFF", color: "#16232E", fontSize: 12 }}>
+                              {players.filter(p => checkedIn.has(p.id) || p.id === id).map(p => <option key={p.id} value={p.id}>{p.name} · {p.tier}</option>)}
+                            </select>
+                          </label>
+                        )))}
+                      </div>
+                    )}
                     <TierMatchStatus match={fakeMatch} players={players} compact />
-                    <button onClick={() => onPlay(m)} style={{ width: "100%", minHeight: 42, marginTop: 10, padding: "10px 12px", background: "#E4574F", border: "2px solid #E4574F", borderRadius: 14, color: "#FFFFFF", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>▶ Mainkan</button>
                   </div>
                 );
               })}
@@ -3756,7 +4873,7 @@ const updateScore = (gi, team, val) => {
       const playableNow = items.filter(m => m.court).length;
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000dd", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 900, color: "#16232E", fontFamily: "'Space Grotesk', sans-serif" }}>🔄 Auto Rounds</div>
@@ -4208,12 +5325,7 @@ const updateScore = (gi, team, val) => {
       const getAllTimeStandingsBlob = async () => {
         const el = document.getElementById("alltime-standings-board");
         if (!el || !window.html2canvas) throw new Error("Klasemen All Time belum siap");
-        const originalCss = el.style.cssText;
-        el.style.width = "430px";
-        el.style.maxWidth = "430px";
-        const canvas = await window.html2canvas(el, { backgroundColor: "#FAF7F2", scale: 2, useCORS: true });
-        el.style.cssText = originalCss;
-        return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+        return createGlassExportBlob(el);
       };
 
       const handleDownloadAllTimeImage = async () => {
@@ -4287,10 +5399,10 @@ const updateScore = (gi, team, val) => {
       };
 
       return (
-        <div style={{ minHeight: "100vh", background: "#FAF7F2", color: "#16232E", maxWidth: 430, margin: "0 auto" }}>
+        <div style={{ minHeight: "100dvh", background: "transparent", color: "#16232E", maxWidth: 430, margin: "0 auto", position: "relative", overflowX: "hidden" }}>
           {/* Header */}
-          <div style={{ background: "linear-gradient(135deg, #FFFFFF, #FAF7F2)", borderBottom: "2px solid #16232E", padding: "16px 20px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div className="cr-glass-header" style={{ background: "linear-gradient(135deg, #FFFFFF, #FAF7F2)", borderBottom: "2px solid #16232E", padding: "calc(12px + var(--cr-safe-top)) 16px 12px", position: "sticky", top: 0, zIndex: 100 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={onBack} style={{ background: "#16232E10", border: "none", borderRadius: 16, padding: "8px 12px", color: "#44515E", fontSize: 13, cursor: "pointer" }}>←</button>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: "#E4574F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{wsEmoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -4306,30 +5418,9 @@ const updateScore = (gi, team, val) => {
                 </div>
               )}
             </div>
-            <div style={{ display: "flex", gap: 0 }}>
-              {[
-                { key: "sessions", icon: "📅", text: "Sesi" },
-                { key: "alltime", icon: "🏆", text: "Klasemen" },
-                { key: "stats", icon: "📊", text: "Statistik" },
-                { key: "players", icon: "👥", text: "Pemain" },
-                { key: "rules", icon: "📖", text: "Aturan" },
-              ].map(t => (
-                <button key={t.key} onClick={() => setSessionTab(t.key)} style={{
-                  flex: 1, minWidth: 0, height: 40, background: "none", border: "none", cursor: "pointer",
-                  padding: "0 2px", fontSize: 11, fontWeight: sessionTab === t.key ? 700 : 500,
-                  color: sessionTab === t.key ? "#E4574F" : "#617181",
-                  borderBottom: sessionTab === t.key ? "2px solid #E4574F" : "2px solid transparent",
-                }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3, width: "100%", whiteSpace: "nowrap", lineHeight: 1 }}>
-                    <span style={{ flex: "0 0 auto", fontSize: 11 }}>{t.icon}</span>
-                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
           </div>
 
-          <div style={{ padding: "16px 16px 40px" }}>
+          <div style={{ padding: "16px 16px calc(104px + var(--cr-safe-bottom))" }}>
 
             {/* === KLASEMEN ALL TIME TAB === */}
             {sessionTab === "alltime" && (() => {
@@ -4360,7 +5451,7 @@ const updateScore = (gi, team, val) => {
               allTimeStandings.forEach(p => { if (p.totalR > maxR) { maxR = p.totalR; mbgAt = p; } });
               return (
                 <div>
-                  <div id="alltime-standings-board" style={{ width: "100%", maxWidth: "100%", padding: "12px 0", background: "#FAF7F2", borderRadius: 14, marginBottom: 16, overflow: "hidden" }}>
+                  <div id="alltime-standings-board" className="cr-share-surface" style={{ width: "100%", maxWidth: "100%", padding: "14px 0", borderRadius: 18, marginBottom: 16, overflow: "hidden" }}>
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, color: "#16232E", textTransform: "uppercase", letterSpacing: "-0.02em", marginBottom: 4 }}>KLASEMEN ALL TIME</div>
                   <div style={{ fontSize: 12, color: "#617181", marginBottom: 16 }}>{sessions.length} sesi · {allDoneMatches.length} total match</div>
 
@@ -4392,8 +5483,8 @@ const updateScore = (gi, team, val) => {
                   )}
 
                   {allTimeStandings.length > 0 && (
-                    <div style={{ width: "100%", maxWidth: "100%", overflowX: "auto", overflowY: "hidden" }}>
-                      <table style={{ width: "100%", minWidth: 398, borderCollapse: "collapse", fontSize: 12, tableLayout: "auto" }}>
+                    <div className="cr-standings-wrap">
+                      <table className="cr-standings-table cr-standings-alltime" style={{ borderCollapse: "collapse", fontSize: 12 }}>
                         <thead>
                           <tr style={{ borderBottom: "1px solid #16232E14" }}>
                             {["#", "Pemain", "Tier", "P", "M", "W-D-L", "TS", "Diff", "R"].map((h, i) => (
@@ -4654,11 +5745,12 @@ const updateScore = (gi, team, val) => {
                       </div>
                       <div style={{ fontSize: 11, color: "#617181", marginTop: 2 }}>{sess.date}</div>
                     </div>
-                    <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
+                    <div style={{ textAlign: "right", display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <div>
                         <div style={{ fontSize: 18, fontWeight: 800, color: isActive ? "#E4574F" : "#16232E", fontFamily: "'DM Mono', monospace" }}>{stats.matchCount}</div>
                         <div style={{ fontSize: 10, color: "#617181" }}>match</div>
                       </div>
+                      {!readOnly && <button className="cr-compact-icon" type="button" onClick={event => { event.stopPropagation(); onDeleteSession?.(sess.id); }} disabled={sessions.length <= 1} aria-label={`Hapus ${sess.label}`} title={sessions.length <= 1 ? "Minimal harus ada 1 sesi" : `Hapus ${sess.label}`} style={{ width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, background: "#FFFFFF", border: "1.5px solid #E4574F", borderRadius: 8, color: "#E4574F", fontSize: 17, lineHeight: 1, fontWeight: 900, cursor: sessions.length <= 1 ? "default" : "pointer" }}>×</button>}
                     </div>
                   </div>
 
@@ -4708,6 +5800,21 @@ const updateScore = (gi, team, val) => {
 
             </div>}
           </div>
+
+          <nav className="cr-bottom-nav cr-bottom-nav-five" aria-label="Navigasi arena">
+            {[
+              { key: "sessions", icon: "📅", text: "Sesi" },
+              { key: "alltime", icon: "🏆", text: "Klasemen" },
+              { key: "stats", icon: "📊", text: "Statistik" },
+              { key: "players", icon: "👥", text: "Pemain" },
+              { key: "rules", icon: "📖", text: "Aturan" },
+            ].map(t => (
+              <button key={t.key} type="button" className={`cr-bottom-tab ${sessionTab === t.key ? "cr-bottom-tab-active" : ""}`} onClick={() => setSessionTab(t.key)} aria-current={sessionTab === t.key ? "page" : undefined}>
+                <span aria-hidden="true">{t.icon}</span>
+                <span>{t.text}</span>
+              </button>
+            ))}
+          </nav>
         </div>
       );
     }
@@ -4718,6 +5825,7 @@ const updateScore = (gi, team, val) => {
       const [newName, setNewName] = React.useState("");
       const [renamingId, setRenamingId] = React.useState(null);
       const [renameName, setRenameName] = React.useState("");
+      const [openActionsId, setOpenActionsId] = React.useState(null);
       const [shareMenuWs, setShareMenuWs] = React.useState(null);
       const shareBusyRef = React.useRef(false);
       const lastShareTapRef = React.useRef(0);
@@ -4766,7 +5874,7 @@ const updateScore = (gi, team, val) => {
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
             {[...workspaces].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(ws => (
               <div key={ws.id} style={{ background: "var(--cr-surface)", border: "2px solid var(--cr-line)", borderRadius: 22, padding: 16, boxShadow: "var(--cr-shadow-hard)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: openActionsId === ws.id ? 16 : 0 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 14, background: "var(--cr-primary)", boxShadow: "0 8px 18px rgba(228, 87, 79,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flex: "0 0 auto" }}>{ws.emoji}</div>
                   <div onClick={() => { if (!ws.readOnly) { setRenamingId(ws.id); setRenameName(ws.name); } }} title={ws.readOnly ? "Arena lihat saja" : "Tap untuk rename Arena"} style={{ flex: 1, minWidth: 0, cursor: ws.readOnly ? "default" : "pointer", padding: "4px 2px", borderRadius: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 17, color: "#16232E", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{ws.name}</span>{!ws.readOnly && <span style={{ fontSize: 11, color: "#44515E", flex: "0 0 auto" }}>✎</span>}</div>
@@ -4777,18 +5885,31 @@ const updateScore = (gi, team, val) => {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => onOpen(ws)} style={{ background: "var(--cr-primary)", border: "2px solid var(--cr-line)", color: "#fff", borderRadius: 16, padding: "14px 24px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "var(--cr-shadow-hard)", minWidth: 96 }}>Buka</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                    <button onClick={() => onOpen(ws)} style={{ background: "var(--cr-primary)", border: "2px solid var(--cr-line)", color: "#fff", borderRadius: 16, padding: "14px 18px", fontSize: 15, fontWeight: 850, cursor: "pointer", boxShadow: "var(--cr-shadow-hard)", minWidth: 82 }}>Buka</button>
+                    <button
+                      type="button"
+                      title={openActionsId === ws.id ? "Tutup pengelolaan Arena" : "Kelola Arena"}
+                      aria-label={openActionsId === ws.id ? "Tutup pengelolaan Arena" : "Kelola Arena"}
+                      aria-expanded={openActionsId === ws.id}
+                      onClick={() => setOpenActionsId(current => current === ws.id ? null : ws.id)}
+                      style={{ width: 44, height: 44, minHeight: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#FFFFFF", border: "2px solid #16232E", borderRadius: 14, color: "#16232E", fontSize: 22, fontWeight: 900, lineHeight: 1, cursor: "pointer" }}
+                    >{openActionsId === ws.id ? "×" : "⋯"}</button>
+                  </div>
                 </div>
-                <div style={{ height: 1, background: "#16232E10", marginBottom: 12 }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
-                  <button onClick={() => setShareMenuWs(ws)} style={{ background: "var(--cr-tertiary)", border: "2px solid var(--cr-line)", color: "var(--cr-ink)", borderRadius: 16, padding: "12px 10px", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr" : "1fr 1fr 1fr", gap: 8 }}>
-                  {!ws.readOnly && <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #16232E", color: "#44515E", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Load</button>}
-
-                  {!ws.readOnly && <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #16232E", color: "#44515E", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>}
-                  <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E4574F", color: "#E4574F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
-                </div>
+                {openActionsId === ws.id && (
+                  <div aria-label={`Kelola ${ws.name}`}>
+                    <div style={{ height: 1, background: "#16232E10", marginBottom: 12 }} />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
+                      <button onClick={() => setShareMenuWs(ws)} style={{ background: "var(--cr-tertiary)", border: "2px solid var(--cr-line)", color: "var(--cr-ink)", borderRadius: 16, padding: "12px 10px", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>↗ Bagikan</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: ws.readOnly ? "1fr" : "1fr 1fr 1fr", gap: 8 }}>
+                      {!ws.readOnly && <button onClick={() => onRestore(ws)} style={{ background: "#FFFFFF", border: "2px solid #16232E", color: "#44515E", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>⇣ Load</button>}
+                      {!ws.readOnly && <button onClick={() => onReset(ws.id)} style={{ background: "#FFFFFF", border: "2px solid #16232E", color: "#44515E", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>↻ Reset</button>}
+                      <button onClick={() => onDelete(ws.id)} style={{ background: "#FFE9EC", border: "2px solid #E4574F", color: "#E4574F", borderRadius: 16, padding: "10px 4px", fontSize: 11, fontWeight: 850, cursor: "pointer" }}>⌫ Hapus</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -4843,7 +5964,7 @@ const updateScore = (gi, team, val) => {
           )}
           {confirmDialog && (
             <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "20px 16px calc(20px + var(--cr-safe-bottom))" }} onClick={() => setConfirmDialog(null)}>
-              <div style={{ background: "var(--cr-surface)", borderRadius: "24px 24px 18px 18px", padding: 20, width: "100%", maxWidth: 390, border: "2px solid var(--cr-line)", textAlign: "center", boxShadow: "var(--cr-shadow-hard)" }} onClick={e => e.stopPropagation()}>
+              <div className="cr-glass-modal" style={{ background: "var(--cr-surface)", borderRadius: "24px 24px 18px 18px", padding: 20, width: "100%", maxWidth: 390, border: "2px solid var(--cr-line)", textAlign: "center", boxShadow: "var(--cr-shadow-hard)" }} onClick={e => e.stopPropagation()}>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: confirmDialog.isDanger ? "#E4574F" : "#16232E" }}>{confirmDialog.title}</div>
                 <div style={{ fontSize: 13, color: "#44515E", marginBottom: 24, lineHeight: 1.5 }}>{confirmDialog.message}</div>
                 <div style={{ display: "flex", gap: 10 }}>
@@ -4864,7 +5985,7 @@ const updateScore = (gi, team, val) => {
       const [showToken, setShowToken] = React.useState(false);
       return (
         <div style={{ position: "fixed", inset: 0, background: "#000000dd", zIndex: 1500, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
-          <div style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+          <div className="cr-glass-modal" style={{ background: "#FFFFFF", borderRadius: "28px 28px 0 0", padding: 20, width: "100%", maxWidth: 430, border: "2px solid #16232E", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>☁️ GitHub Gist Backup</div>
             <div style={{ fontSize: 12, color: "#617181", marginBottom: 16, lineHeight: 1.5 }}>
               Simpan & pulihkan data ke GitHub Gist. Data tersimpan di akun GitHub kamu — aman & privat.
